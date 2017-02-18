@@ -1,8 +1,6 @@
--e git+git@github.com:septa97/special-problem.git@b4bb044dafb0f30e997ba8a136ca8ed6efdb4197#egg=app
 appdirs==1.4.0
 click==6.7
 Flask==0.12
-Flask-Assets==0.12
 itsdangerous==0.24
 Jinja2==2.9.5
 MarkupSafe==0.23
