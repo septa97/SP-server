@@ -1,0 +1,17 @@
+__pycache__/
+venv/
+app.egg-info/
+node_modules/
+.webassets-cache/
+gen/
+
+*.log
+
+# Temporary ignored files and folders
+data/
+X.csv
+X_temp.csv
+y.csv
+y_temp.csv
+vocab.csv
+REMINDERS.txt

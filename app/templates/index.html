@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>MOOC</title>
+		<link rel="stylesheet" type="text/css" href="static/node_modules/dc/dc.css" />
+		<link rel="stylesheet" type="text/css" href="static/node_modules/materialize-css/dist/css/materialize.css" />
+	</head>
+	<body>
+		<div id="app">
+			<nav>
+				<div class="nav-wrapper">
+					<a class="brand-logo left">Logo</a>
+					<ul id="nav-mobile" class="right hide-on-med-and-down">
+						<!-- <li><router-link to="/map">Map</router-link></li> -->
+						<!-- <li><router-link to="/visualizer">Visualizer</router-link></li> -->
+					</ul>
+				</div>
+			</nav>
+			<!-- <router-view></router-view> -->
+		</div>
+
+		<script type="text/javascript" src="static/node_modules/jquery/dist/jquery.js"></script>
+		<script type="text/javascript" src="static/node_modules/materialize-css/dist/js/materialize.js"></script>
+		<script type="text/javascript" src="static/node_modules/vue/dist/vue.js"></script>
+		<script type="text/javascript" src="static/node_modules/vue-router/dist/vue-router.js"></script>
+		<script type="text/javascript" src="static/node_modules/d3/d3.js"></script>
+		<script type="text/javascript" src="static/node_modules/crossfilter2/crossfilter.js"></script>
+		<script type="text/javascript" src="static/node_modules/dc/dc.js"></script>
+		{% assets "js_all" %}
+			<script type="text/javascript" src="{{ ASSET_URL }}"></script>
+		{% endassets %}
+	</body>
+</html>
