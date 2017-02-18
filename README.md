@@ -32,8 +32,7 @@ Coursera's MOOCs Sentiment Analysis and Visualization: Polarity Identification f
 * `virtualenv venv`
 * `. venv/bin/activate`
 * `pip install -r requirements.txt`
-* `cd app/static && npm install`
 
 ## Running the application
-* `cd ../.. && flask run`
+* `flask run`
 * Go to localhost:5000
