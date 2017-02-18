@@ -1,5 +1,5 @@
-Coursera's MOOCs Sentiment Analysis and Visualization: Polarity Identification from Course Reviews
-==================================================================================================
+Coursera's MOOCs Sentiment Analysis and Visualization: Polarity Identification from Course Reviews (server)
+===========================================================================================================
 
 ## Modules
 * Data Scraper
