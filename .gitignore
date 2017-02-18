@@ -1,9 +1,6 @@
 __pycache__/
 venv/
 app.egg-info/
-node_modules/
-.webassets-cache/
-gen/
 
 *.log
 
