@@ -34,5 +34,5 @@ Coursera's MOOCs Sentiment Analysis and Visualization: Polarity Identification f
 * `pip install -r requirements.txt`
 
 ## Running the application
-* `flask run`
+* `./run.sh`
 * Go to localhost:5000
