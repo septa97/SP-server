@@ -7,6 +7,6 @@ Jinja2==2.9.5
 MarkupSafe==0.23
 packaging==16.8
 pyparsing==2.1.10
+rethinkdb==2.3.0.post6
 six==1.10.0
-webassets==0.12.1
 Werkzeug==0.11.15
