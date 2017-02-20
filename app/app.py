@@ -1,15 +1,26 @@
-import os
-from flask import Flask
-from flask_cors import CORS, cross_origin
+from flask import Flask, jsonify
+from flask_cors import CORS
 from app.config import config
 
 def create_app(env):
 	app = Flask(__name__)
-	CORS(app)
 	app.config.from_object(config[env])
 
-	@app.route('/')
-	def index():
-		return 'Hello World!'
+	# Naive CORS
+	CORS(app)
+	load_blueprints(app)
+
+	# Catch-All URL
+	@app.route('/', defaults={'path': ''})
+	@app.route('/<path:path>')
+	def catch_all(path):
+		return jsonify(message='Invalid route :(')
 
 	return app
+
+def load_blueprints(app):
+	from .api.coursera.routes import mod as coursera_mod
+	from .api.rethinkdb.routes import mod as rethinkdb_mod
+
+	app.register_blueprint(coursera_mod, url_prefix='/api/v1/coursera')
+	app.register_blueprint(rethinkdb_mod, url_prefix='/api/v1/rethinkdb')

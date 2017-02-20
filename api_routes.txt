@@ -1,0 +1,7 @@
+There are 2 main endpoints for the API
+
+Coursera - wrapper API for calling the Coursera Catalog API
+	* GET /api/v1/coursera/partners/location - This endpoint will be used to get all the partner institutions and its corresponding location (if it is available)
+
+RethinkDB - API for CRUD in RethinkDB database
+	* GET /api/v1/rethinkdb/reviews - This endpoint will be used to get all the reviews in Coursera
