@@ -12,135 +12,140 @@ from selenium.webdriver.common.action_chains import ActionChains
 from selenium.common.exceptions import TimeoutException
 from config import config
 
-# Globals
-base_url = 'https://www.coursera.org/learn/';
-driver = webdriver.Firefox()
-wait = WebDriverWait(driver, 60)	# 60 seconds maximum wait time for explicit waits
-actions = ActionChains(driver)
-paths = {
-	'slugs': os.path.dirname(os.path.realpath(__file__)) + '/../data/slugs.json',
-	'scraped': os.path.dirname(os.path.realpath(__file__)) + '/../data/scraped.json'
-}
-global_total_reviews = 0
 
-# Function that scrapes all the reviews (if there is a review in that course) in the specified url and then insert it to the database
-# Input: slug of the course, connection object
-# Output: N/A
-def scrape_reviews(slug, connection):
-	global global_total_reviews
-	print('Scraping ' + base_url + slug + '...')
-	reviews = {slug: []}
-
-	driver.get(base_url + slug)
-	try:
-		elem = wait.until(EC.element_to_be_clickable((By.XPATH, '//button[@data-track-component="view_all_reviews"]')))
-	except TimeoutException:
-		# Will return if there are no reviews in the course
-		print(slug, 'has no reviews.')
-		return
-
-	# Wait for 5 seconds before clicking the "See all reviews" button
-	time.sleep(5)
-	elem.click()
-
-	# Wait for the modal that contains the reviews to be visible
-	elem = wait.until(EC.visibility_of_element_located((By.CLASS_NAME, 'c-modal-content')))
-	# Set the focus to the modal
-	actions.move_to_element(elem)
+class CourseraScraper:
+	def __init__(self, base_url, paths, driver=webdriver.Firefox(), max_wait_time=60):
+		self.base_url = base_url
+		self.driver = driver
+		self.wait = WebDriverWait(driver, max_wait_time)
+		self.actions = ActionChains(driver)
+		self.overall_reviews = 0
+		self.load_slugs_json(paths['slugs'])
+		self.load_scraped_json(paths['scraped'])
+		self.init_connection()
+		self.start()
 
 
-	# Wait for 5 seconds before triggering the infinite scrolling
-	time.sleep(5)
-	while True:
-		elem.send_keys(Keys.END)
+	def start(self):
+		"""
+		Start the scraping
+		"""
+		for slug in self.slugs['elements']:
+			if (slug not in self.scraped['elements']):
+				self.scrape_reviews(slug)
+				self.scraped['elements'].append(slug)
+
+				# Write to file everytime a course is scraped
+				dir_path = os.path.dirname(os.path.realpath(__file__)) + '/../data'
+				os.makedirs(dir_path, exist_ok=True)
+				with open(dir_path + '/scraped.json', 'w') as fp:
+					json.dump(self.scraped, fp)
+
+				print(slug, 'is written to scraped.json...')
+			else:
+				print(base_url + slug, 'is already scraped...')
+
+		print('Overall total number of reviews fetched:', str(self.overall_reviews))
+		driver.close()
+
+
+	def load_slugs_json(self, path):
+		"""
+		Loads the courses information that was fetched from the Coursera's Catalog API
+		"""
+		with open(path) as json_data:
+			self.slugs = json.load(json_data)
+
+
+	def load_scraped_json(self, path):
+		"""
+		Loads the list of already scraped courses
+		"""
+		with open(path) as json_data:
+			self.scraped = json.load(json_data)
+
+
+	def init_connection(self):
+		"""
+		Initializes the connection to the RethinkDB server
+		"""
+		self.connection = r.connect(config['HOST'], config['PORT'])
 		try:
-			wait.until(EC.visibility_of_element_located((By.CLASS_NAME, 'spinner')))
+			r.db_create(config['DB_NAME']).run(self.connection)
+			print('Database', config['DB_NAME'], 'is now created.')
+		except RqlRuntimeError:
+			print('Database', config['DB_NAME'], 'already exists.')
+
+		try:
+			r.db(config['DB_NAME']).table_create('reviews').run(self.connection)
+			print('reviews table has been created.')
+		except RqlRuntimeError:
+			print('Table reviews already exists.')
+
+
+	def scrape_reviews(self, slug):
+		"""
+		Scrapes all the reviews (if there is a review in that course) in the specified url
+		and then insert it to the database
+		"""
+		print('Scraping ' + self.base_url + slug + '...')
+		reviews = {slug: []}
+
+		self.driver.get(self.base_url + slug)
+		try:
+			elem = self.wait.until(EC.element_to_be_clickable((By.XPATH, '//button[@data-track-component="view_all_reviews"]')))
 		except TimeoutException:
-			# If waiting exceeds the timeout, it means that all reviews are now in the modal
-			break
+			# Will return if there are no reviews in the course
+			print(slug, 'has no reviews.')
+			return
 
-		wait.until(EC.invisibility_of_element_located((By.CLASS_NAME, 'spinner')))
+		# Wait for 5 seconds before clicking the "See all reviews" button
+		time.sleep(5)
+		elem.click()
 
-
-	total_reviews = 0	
-	divs = driver.find_elements_by_class_name('rc-CML')
-	for div in divs:
-		paragraphs = div.find_element_by_tag_name('div').find_elements_by_tag_name('p')
-
-		review = ''
-		for paragraph in paragraphs:
-			review += paragraph.text
-		
-		reviews[slug].append(review)
-
-		total_reviews += 1
-		global_total_reviews += 1
-
-	# Insert to the table 'reviews' of the database 'mooc'
-	r.db(config['DB_NAME']).table('reviews').insert(reviews).run(connection)
-	print('Reviews for', slug, 'was added to database:', config['DB_NAME'] + ', table: reviews')
-	print('Total reviews:', str(total_reviews))
+		# Wait for the modal that contains the reviews to be visible
+		elem = self.wait.until(EC.visibility_of_element_located((By.CLASS_NAME, 'c-modal-content')))
+		# Set the focus to the modal
+		self.actions.move_to_element(elem)
 
 
-# Function that initializes the connection to the RethinkDB server
-# Input: N/A
-# Output: connection object
-def init_connection():
-	connection = r.connect(config['HOST'], config['PORT'])
-	try:
-		r.db_create(config['DB_NAME']).run(connection)
-		print('Database', config['DB_NAME'], 'is now created.')
-	except RqlRuntimeError:
-		print('Database', config['DB_NAME'], 'already exists.')
+		# Wait for 5 seconds before triggering the infinite scrolling
+		time.sleep(5)
+		while True:
+			elem.send_keys(Keys.END)
+			try:
+				self.wait.until(EC.visibility_of_element_located((By.CLASS_NAME, 'spinner')))
+			except TimeoutException:
+				# If waiting exceeds the timeout, it means that all reviews are now in the modal
+				break
 
-	try:
-		r.db(config['DB_NAME']).table_create('reviews').run(connection)
-		print('reviews table has been created.')
-	except RqlRuntimeError:
-		print('Table reviews already exists.')
-	finally:
-		return connection
+			self.wait.until(EC.invisibility_of_element_located((By.CLASS_NAME, 'spinner')))
 
 
-# Function that loads the courses information that was fetched from the Coursera's Catalog API
-# Input: path of slugs.json
-# Output: data of slugs.json
-def load_slugs_json(path):
-	with open(path) as json_data:
-		return json.load(json_data)
+		total_reviews = 0
+		divs = self.driver.find_elements_by_class_name('rc-CML')
+		for div in divs:
+			paragraphs = div.find_element_by_tag_name('div').find_elements_by_tag_name('p')
 
-# Function that loads the list of already scraped courses
-# Input: path of scraped.json
-# Output: data of scraped.json
-def load_scraped_json(path):
-	with open(path) as json_data:
-		return json.load(json_data)
+			review = ''
+			for paragraph in paragraphs:
+				review += paragraph.text
 
-# Function that triggers the start the scraping
-# Input: N/A
-# Output: N/A
-def start():
-	connection = init_connection()
-	slugs = load_slugs_json(paths['slugs'])
-	scraped = load_scraped_json(paths['scraped'])
+			reviews[slug].append(review)
 
-	for slug in slugs['elements']:
-		if (slug not in scraped['elements']):
-			scrape_reviews(slug, connection)
-			scraped['elements'].append(slug)
-			
-			# Write to file everytime a course is scraped
-			dir_path = os.path.dirname(os.path.realpath(__file__)) + '/../data';
-			os.makedirs(dir_path, exist_ok=True)
-			with open(dir_path + '/scraped.json', 'w') as fp:
-				json.dump(scraped, fp)
+			total_reviews += 1
+			self.overall_reviews += 1
 
-			print(slug, 'is written to scraped.json...')
-		else:
-			print(base_url + slug, 'is already scraped...')
-	
-	print('Overall total number of reviews fetched:', str(global_total_reviews))
-	driver.close()
+		# Insert to the table 'reviews' of the database 'mooc'
+		r.db(config['DB_NAME']).table('reviews').insert(reviews).run(self.connection)
+		print('Reviews for', slug, 'was added to database:', config['DB_NAME'] + ', table: reviews')
+		print('Total reviews:', str(total_reviews))
 
 
-start()
+if __name__ == "__main__":
+	paths = {
+		'slugs': os.path.dirname(os.path.realpath(__file__)) + '/../data/slugs.json',
+		'scraped': os.path.dirname(os.path.realpath(__file__)) + '/../data/scraped.json'
+	}
+
+	scraper = CourseraScraper('https://www.coursera.org/learn/', paths)
