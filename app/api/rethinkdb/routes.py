@@ -19,4 +19,4 @@ def get_all_reviews():
 		slug = list(filter(lambda k: k != 'id', row.keys()))[0]
 		reviews.extend(row[slug])
 
-	return jsonify(data=reviews)
+	return jsonify(reviews)
