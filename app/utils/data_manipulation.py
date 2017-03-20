@@ -10,7 +10,7 @@ def feature_scale(X):
 		maximum = np.max(X[:, j])
 		minimum = np.min(X[:, j])
 
-		X[:, j] = X[:, j] / (maximum - minimum)
+		X[:, j] = (X[:, j] - minimum) / (maximum - minimum)
 
 	return X
 
