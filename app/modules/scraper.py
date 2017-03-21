@@ -2,6 +2,7 @@ import time
 import json
 import os
 import rethinkdb as r
+
 from rethinkdb.errors import RqlRuntimeError
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -23,7 +24,6 @@ class CourseraScraper:
 		self.load_slugs_json(paths['slugs'])
 		self.load_scraped_json(paths['scraped'])
 		self.init_connection()
-		self.start()
 
 
 	def start(self):
@@ -149,3 +149,4 @@ if __name__ == "__main__":
 	}
 
 	scraper = CourseraScraper('https://www.coursera.org/learn/', paths)
+	scraper.start()
