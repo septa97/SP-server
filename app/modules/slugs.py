@@ -2,10 +2,10 @@ import os
 import requests
 import json
 
-# Function that retrieves the slugs of all the courses in the Coursera Catalog API
-# Input: N/A
-# Output: N/A
-def start():
+def main():
+	"""
+	Retrieves the slugs of all the courses in the Coursera Catalog API
+	"""
 	data = requests.get('https://api.coursera.org/api/courses.v1?start=0&limit=100').json()
 	slugs = {'elements': []}
 	for element in data['elements']:
@@ -23,4 +23,6 @@ def start():
 
 	print('Slugs are written to slugs.json...')
 
-start()
+
+if __name__ == "__main__":
+	main()

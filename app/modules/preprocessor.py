@@ -10,10 +10,11 @@ stopwords = nltk.corpus.stopwords.words('english')
 punctuation_table = str.maketrans(string.punctuation, ' ' * len(string.punctuation))
 
 
-# Function that preprocess a review
-# Input: a single review (string)
-# Output: a list of tokens
 def preprocess(review):
+	"""
+	Preprocess a review
+	"""
+
 	# Check if the language of the review is English and proceed if it is English
 	try:
 		language = langdetect.detect(review)
@@ -27,7 +28,7 @@ def preprocess(review):
 
 	# Remove punctuations
 	review = review.translate(punctuation_table)
-	
+
 	tokens = nltk.word_tokenize(review)
 	tokens = remove_stop_words(tokens)
 	# pos_tags = nltk.pos_tag(tokens)
@@ -35,10 +36,10 @@ def preprocess(review):
 	return tokens
 
 
-# Function that removes the stop words from the review
-# Input: a list of tokens that are not preprocessed
-# Output: a list of preprocessed tokens
 def remove_stop_words(original_tokens):
+	"""
+	Remove the stop words from the review
+	"""
 	preprocessed_tokens = []
 
 	for token in original_tokens:
