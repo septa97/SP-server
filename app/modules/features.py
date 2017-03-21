@@ -1,115 +1,192 @@
 import rethinkdb as r
 import numpy as np
 import pandas as pd
+
+from rethinkdb.errors import RqlRuntimeError
 from nltk.corpus import sentiwordnet as swn
 from preprocessor import preprocess
 from vocabulary import create_vocabulary_list
 from config import config
 
-# Globals
-reviews = []
-vocab_list = []
-n = config['VOCAB_SIZE']
 
-# Function that retrieves all the reviews and writes the vocabulary list to vocab.csv
-# Input: N/A
-# Output: N/A
-def init():
-	global reviews, vocab_list
-	connection = r.connect(config['HOST'], config['PORT'])
-	cursor = r.db(config['DB_NAME']).table('reviews').run(connection)
-	rows = []
-
-	for document in cursor:
-		rows.append(document)
-
-	for row in rows:
-		slug = list(filter(lambda k: k != 'id', row.keys()))[0]
-		reviews.extend(row[slug])
-
-	# vocab_list = create_vocabulary_list(reviews)
-
-	# Write to vocab.csv
-	# df = pd.DataFrame(vocab_list, columns=['feature_words'])
-	# df.to_csv('vocab.csv', index=False)
-
-	extract_features_and_labels()
+class FeaturePreprocessor:
+	def __init__(self):
+		self.n = config['VOCAB_SIZE']
+		self.reviews = []
+		self.vocab_list = []
+		self.init_connection()
 
 
-# Function that extracts the features of a list of reviews the writes to X.csv and y.csv
-# Input: N/A
-# Output: N/A
-def extract_features_and_labels():
-	vocab_list = pd.read_csv('vocab.csv')
+	def start(self, use_existing_vocab=True):
+		"""
+		Retrieves all the reviews
+		"""
+		cursor = r.db(config['DB_NAME']).table('reviews').run(self.connection)
+		rows = []
 
-	X = pd.DataFrame()
-	y = pd.DataFrame()
+		for document in cursor:
+			rows.append(document)
 
-	num = 0
-	for review in reviews:
-		tokens = preprocess(review)
+		for row in rows:
+			slug = list(filter(lambda k: k != 'id', row.keys()))[0]
+			if (len(self.reviews) > 500):
+				break
 
-		# If the language of the review is not English
-		if (tokens == -1):
-			continue
+			self.reviews.extend(row[slug])
 
-		word_indices = get_word_indices(tokens, vocab_list)
-		num += 1
-		print(num)
-		feature_vector = get_feature_vector(word_indices)
-		X = X.append(feature_vector.T)
+		if (use_existing_vocab):
+			# Retrieve all the vocab rows
+			cursor = r.db(config['DB_NAME']).table('vocab').run(self.connection)
 
-		classification = identify_class(tokens)
-		y = y.append([classification])
+			for document in cursor:
+				self.vocab_list = document['vocab']
+		else:
+			self.vocab_list = create_vocabulary_list(self.reviews)
 
-	# Write X and y to X.csv and y.csv respectively
-	X.to_csv('X.csv', index=False)
-	y.to_csv('y.csv', index=False)
+			obj = {'vocab': self.vocab_list}
 
+			# Delete all rows of vocab table
+			r.db(config['DB_NAME']).table('vocab').delete().run(self.connection)
+			print('All vocab rows are deleted.')
 
-# Function that returns a feature vector {0, 1}
-# Input: list of word index
-# Output: n x 1 DataFrame
-def get_feature_vector(word_indices):
-	# Set the elements of the feature vector to 0
-	feature_vector = pd.DataFrame(0, index=np.arange(0, n), columns=np.arange(1))
+			# Insert to vocab table
+			r.db(config['DB_NAME']).table('vocab').insert(obj).run(self.connection)
+			print('New vocab rows are inserted.')
 
-	for index in word_indices:
-		feature_vector.loc[index] = 1
-
-	return feature_vector
+		self.extract_features_and_labels()
 
 
-# Function that returns the word indices from the list of token
-# Input: list of tokens, list of vocabulary
-# Output: a list of the word indices
-def get_word_indices(tokens, vocab_list):
-	word_indices = []
-
-	for token in tokens:
-		word_indices.extend(vocab_list[(vocab_list['feature_words'] == token)].index.tolist())
-
-	return word_indices
-
-
-# Function that identify the class of the review based on the total sentiment scores (this will serve as the actual value of the review)
-# Input: a list of tokens of a review
-# Output: a class which is an element of {1, -1, 0}
-def identify_class(tokens):
-	score = 0
-	
-	for word in tokens:
-		synset_list = list(swn.senti_synsets(word))
-
-		for synset in synset_list:
-			score += (synset.pos_score() - synset.neg_score())
-
-	if (score > 0):
-		return 1
-	elif (score < 0):
-		return -1
-	else:		# WILL CHANGE THIS LATER. OBJECTIVITY WILL BE MEASURED FOR NEUTRALITY INSTEAD
-		return 0
+	def init_connection(self):
+		"""
+		Initializes the connection to the RethinkDB server
+		"""
+		self.connection = r.connect(config['HOST'], config['PORT'])
+		try:
+			r.db(config['DB_NAME']).table_create('vocab').run(self.connection)
+			print('vocab table has been created.')
+		except RqlRuntimeError:
+			print('Table vocab already exists')
 
 
-init()
+	def extract_features_and_labels(self):
+		"""
+		Extracts the features of a list of reviews
+		"""
+		X = np.empty([0, self.n])
+		y = np.array([])
+
+		num = 0
+		for i, review in zip(range(0, len(self.reviews)), self.reviews):
+			print(i*100//len(self.reviews) , '%', end='\r')
+			tokens = preprocess(review)
+
+			# If the language of the review is not English
+			if (tokens == -1):
+				continue
+
+			word_indices = self.get_word_indices(tokens)
+			num += 1
+			feature_vector = self.get_feature_vector(word_indices)
+			X = np.append(X, [feature_vector], axis=0)
+
+			classification = self.identify_class(tokens)
+			y = np.append(y, classification)
+
+		print('Processed a total of', num, 'rows.')
+
+		try:
+			r.db(config['DB_NAME']).table_create('X').run(self.connection)
+			print('X table has been created.')
+		except RqlRuntimeError:
+			print('Table X already exists. Deleting all rows...')
+			r.db(config['DB_NAME']).table('X').delete().run(self.connection)
+			print('All X rows are deleted.')
+
+		try:
+			r.db(config['DB_NAME']).table_create('y').run(self.connection)
+			print('y table has been created.')
+		except RqlRuntimeError:
+			print('Table y already exists. Deleting all rows...')
+			r.db(config['DB_NAME']).table('y').delete().run(self.connection)
+			print('All y rows are deleted.')
+
+		# Insert to X table
+		obj = {'X': X}
+		r.db(config['DB_NAME']).table('X').insert(obj).run(self.connection)
+		print('Successfully inserted X to the', config['DB_NAME'], 'database.')
+
+		# Insert to y table
+		obj = {'y': y}
+		r.db(config['DB_NAME']).table('y').insert(obj).run(self.connection)
+		print('Successfully inserted y to the', config['DB_NAME'], 'database.')
+
+
+	def get_word_indices(self, tokens):
+		"""
+		Returns the word indices from the token list
+		"""
+		word_indices = []
+
+		temp_vocab_list = np.array(self.vocab_list)
+		for token in tokens:
+			word_indices.extend(np.where(temp_vocab_list == token)[0].tolist())
+
+		return word_indices
+
+
+	def get_feature_vector(self, word_indices):
+		"""
+		Returns a feature vector
+		"""
+
+		# Set the elements of the feature vector to 0
+		feature_vector = np.zeros(self.n)
+
+		for index in word_indices:
+			feature_vector[index] = 1
+
+		return feature_vector.tolist()
+
+
+	def identify_class(self, tokens):
+		"""
+		Identifies the class of the review based on the total sentiment scores
+		"""
+		score = 0
+		total_obj_score = 0
+		total_available_synsets = 0
+
+		for word in tokens:
+			word_obj_score = 0
+			synset_list = list(swn.senti_synsets(word))
+
+			if (len(synset_list) > 0):
+				total_available_synsets += 1
+				for synset in synset_list:
+					score += (synset.pos_score() - synset.neg_score())
+					word_obj_score += synset.obj_score()
+
+				word_obj_score = word_obj_score / len(synset_list)
+				total_obj_score += word_obj_score
+
+		total_obj_score = total_obj_score / total_available_synsets
+
+		# The objectivity is the mean of each word's objectivity means
+		if (score > 0.2):
+			return 1
+		elif (score < -0.2):
+			return -1
+		else:
+			return 0
+
+		# if (total_obj_score >= 0.875):
+		# 	return 0
+		# elif (score > 0):
+		# 	return 1
+		# else:
+		# 	return -1
+
+
+if __name__ == "__main__":
+	feature_preprocessor = FeaturePreprocessor()
+	feature_preprocessor.start(use_existing_vocab=True)
