@@ -1,5 +1,6 @@
 import numpy as np
 
+
 def feature_scale(X):
 	"""
 	Scales the feature values based on the minimum and maximum values

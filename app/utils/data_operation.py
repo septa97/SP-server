@@ -1,5 +1,6 @@
 import numpy as np
 
+
 def accuracy_score(actual, predicted):
 	"""
 	Computes the accuracy
