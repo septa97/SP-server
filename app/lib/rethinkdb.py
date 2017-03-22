@@ -1,6 +1,5 @@
 import rethinkdb as r
-from app.modules.config import config
+from app.configuration.config import config
 
-HOST = config['HOST']
-PORT = config['PORT']
-connection = r.connect(HOST, PORT)
+
+connection = r.connect(config['HOST'], config['PORT'])
