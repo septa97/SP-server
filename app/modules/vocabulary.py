@@ -1,11 +1,15 @@
 import operator
 from preprocessor import preprocess
+
+dir_path = os.path.dirname(os.path.realpath(__file__))
+sys.path.insert(0, dir_path + "/../configuration")
 from config import config
 
-# Function that creates a list of the top VOCAB_SIZE words (sorted by their frequency in descending order)
-# Input: a list of tuples
-# Output: a list of string
+
 def create_vocabulary_list(reviews):
+	"""
+	Creates a list of the top VOCAB_SIZE words (sorted by their frequency in descending order)
+	"""
 	vocab_list = []
 	tuple_list = get_vocabulary_list(reviews)
 
@@ -16,10 +20,10 @@ def create_vocabulary_list(reviews):
 	return vocab_list
 
 
-# Function that retrieves the list of tuples of each word frequency
-# Input: a list of unpreprocessed reviews
-# Output: a list of tuples
 def get_vocabulary_list(reviews):
+	"""
+	Retrieves the list of tuples of each word frequency
+	"""
 	freq_map = {}
 
 	total = 0
