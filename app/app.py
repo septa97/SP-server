@@ -24,7 +24,9 @@ def load_blueprints(app):
 	from .api.coursera.routes import mod as coursera_mod
 	from .api.rethinkdb.routes import mod as rethinkdb_mod
 	from .api.classifier.routes import mod as classifier_mod
+	from .api.visualizer.routes import mod as visualizer_mod
 
 	app.register_blueprint(coursera_mod, url_prefix='/api/v1/coursera')
 	app.register_blueprint(rethinkdb_mod, url_prefix='/api/v1/rethinkdb')
 	app.register_blueprint(classifier_mod, url_prefix='/api/v1/classifier')
+	app.register_blueprint(visualizer_mod, url_prefix='/api/v1/visualizer')
