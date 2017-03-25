@@ -7,11 +7,9 @@ from app.configuration.config import config
 from app.models.LR import main as LogisticRegression
 from app.models.SVM import main as SupportVectorMachine
 from app.models.MLP import main as MultiLayerPerceptron
-from app.lib.rethinkdb import connection
 from app.utils.db_manipulation import save_to_LR, save_to_SVM, save_to_MLP
 
 
-DB_NAME = config['DB_NAME']
 mod = Blueprint('classifier', __name__)
 
 @mod.route('/logistic-regression', methods=['POST'])
