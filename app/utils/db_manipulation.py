@@ -2,7 +2,7 @@ import rethinkdb as r
 
 from rethinkdb.errors import RqlRuntimeError
 
-from app.lib.rethinkdb import connection
+from app.lib.rethinkdb_connect import connection
 from app.configuration.config import config
 
 
