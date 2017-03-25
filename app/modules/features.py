@@ -6,7 +6,12 @@ from rethinkdb.errors import RqlRuntimeError
 from nltk.corpus import sentiwordnet as swn
 from preprocessor import preprocess
 from vocabulary import create_vocabulary_list
+
+dir_path = os.path.dirname(os.path.realpath(__file__))
+sys.path.insert(0, dir_path + "/../configuration")
+sys.path.insert(0, dir_path + "/../lib")
 from config import config
+from rethinkdb_connect import connection
 
 
 class FeaturePreprocessor:
@@ -21,7 +26,7 @@ class FeaturePreprocessor:
 		"""
 		Retrieves all the reviews
 		"""
-		cursor = r.db(config['DB_NAME']).table('reviews').run(self.connection)
+		cursor = r.db(config['DB_NAME']).table('reviews').run(connection)
 		rows = []
 
 		for document in cursor:
@@ -29,14 +34,14 @@ class FeaturePreprocessor:
 
 		for row in rows:
 			slug = list(filter(lambda k: k != 'id', row.keys()))[0]
-			if (len(self.reviews) > 500):
-				break
+			# if (len(self.reviews) > 500):
+				# break
 
 			self.reviews.extend(row[slug])
 
 		if (use_existing_vocab):
 			# Retrieve all the vocab rows
-			cursor = r.db(config['DB_NAME']).table('vocab').run(self.connection)
+			cursor = r.db(config['DB_NAME']).table('vocab').run(connection)
 
 			for document in cursor:
 				self.vocab_list = document['vocab']
@@ -46,11 +51,11 @@ class FeaturePreprocessor:
 			obj = {'vocab': self.vocab_list}
 
 			# Delete all rows of vocab table
-			r.db(config['DB_NAME']).table('vocab').delete().run(self.connection)
+			r.db(config['DB_NAME']).table('vocab').delete().run(connection)
 			print('All vocab rows are deleted.')
 
 			# Insert to vocab table
-			r.db(config['DB_NAME']).table('vocab').insert(obj).run(self.connection)
+			r.db(config['DB_NAME']).table('vocab').insert(obj).run(connection)
 			print('New vocab rows are inserted.')
 
 		self.extract_features_and_labels()
@@ -60,9 +65,8 @@ class FeaturePreprocessor:
 		"""
 		Initializes the connection to the RethinkDB server
 		"""
-		self.connection = r.connect(config['HOST'], config['PORT'])
 		try:
-			r.db(config['DB_NAME']).table_create('vocab').run(self.connection)
+			r.db(config['DB_NAME']).table_create('vocab').run(connection)
 			print('vocab table has been created.')
 		except RqlRuntimeError:
 			print('Table vocab already exists')
@@ -95,29 +99,29 @@ class FeaturePreprocessor:
 		print('Processed a total of', num, 'rows.')
 
 		try:
-			r.db(config['DB_NAME']).table_create('X').run(self.connection)
+			r.db(config['DB_NAME']).table_create('X').run(connection)
 			print('X table has been created.')
 		except RqlRuntimeError:
 			print('Table X already exists. Deleting all rows...')
-			r.db(config['DB_NAME']).table('X').delete().run(self.connection)
+			r.db(config['DB_NAME']).table('X').delete().run(connection)
 			print('All X rows are deleted.')
 
 		try:
-			r.db(config['DB_NAME']).table_create('y').run(self.connection)
+			r.db(config['DB_NAME']).table_create('y').run(connection)
 			print('y table has been created.')
 		except RqlRuntimeError:
 			print('Table y already exists. Deleting all rows...')
-			r.db(config['DB_NAME']).table('y').delete().run(self.connection)
+			r.db(config['DB_NAME']).table('y').delete().run(connection)
 			print('All y rows are deleted.')
 
 		# Insert to X table
 		obj = {'X': X}
-		r.db(config['DB_NAME']).table('X').insert(obj).run(self.connection)
+		r.db(config['DB_NAME']).table('X').insert(obj).run(connection)
 		print('Successfully inserted X to the', config['DB_NAME'], 'database.')
 
 		# Insert to y table
 		obj = {'y': y}
-		r.db(config['DB_NAME']).table('y').insert(obj).run(self.connection)
+		r.db(config['DB_NAME']).table('y').insert(obj).run(connection)
 		print('Successfully inserted y to the', config['DB_NAME'], 'database.')
 
 
