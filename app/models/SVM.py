@@ -74,7 +74,7 @@ def main(test_size=0.2):
 
 	script, div = components(p, wrap_script=False, wrap_plot_info=True)
 
-	return script, div, training_score, test_score
+	return script, div, training_score, test_score, X_train.shape[0]
 
 	# show(p)
 
