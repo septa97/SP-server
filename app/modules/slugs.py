@@ -2,6 +2,7 @@ import os
 import requests
 import json
 
+
 def main():
 	"""
 	Retrieves the slugs of all the courses in the Coursera Catalog API
