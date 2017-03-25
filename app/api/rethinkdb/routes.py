@@ -77,7 +77,7 @@ def get_all_partners_location():
 	"""
 	data = {'elements': []}
 
-	cursor = r.db(config['DB_NAME']).table('partners').pluck('id', 'location').run(connection)
+	cursor = r.db(config['DB_NAME']).table('partners').pluck('id', 'location', 'name').run(connection)
 
 	for document in cursor:
 		data['elements'].append(document)
@@ -99,6 +99,9 @@ def get_all_course_review_words_overall(course_id):
 	row = []
 	for document in cursor:
 		row.append(document)
+
+	if (len(row) == 0):
+		return jsonify(data)
 
 	slug = list(filter(lambda k: k != 'id', row[0].keys()))[0]
 	reviews = row[0][slug]
@@ -128,6 +131,9 @@ def get_all_course_review_words_positive(course_id):
 	row = []
 	for document in cursor:
 		row.append(document)
+
+	if (len(row) == 0):
+		return jsonify(data)
 
 	slug = list(filter(lambda k: k != 'id', row[0].keys()))[0]
 	reviews = row[0][slug]
@@ -173,6 +179,9 @@ def get_all_course_review_words_negative(course_id):
 	for document in cursor:
 		row.append(document)
 
+	if (len(row) == 0):
+		return jsonify(data)
+
 	slug = list(filter(lambda k: k != 'id', row[0].keys()))[0]
 	reviews = row[0][slug]
 
@@ -216,6 +225,9 @@ def get_all_course_review_words_neutral(course_id):
 	row = []
 	for document in cursor:
 		row.append(document)
+
+	if (len(row) == 0):
+		return jsonify(data)
 
 	slug = list(filter(lambda k: k != 'id', row[0].keys()))[0]
 	reviews = row[0][slug]
