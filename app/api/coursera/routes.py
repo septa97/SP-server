@@ -1,7 +1,13 @@
 import json
 import requests
 import os
+import rethinkdb as r
+
 from flask import Blueprint, jsonify
+from rethinkdb.errors import RqlRuntimeError
+from app.configuration.config import config
+from app.lib.rethinkdb_connect import connection
+
 
 # This blueprint is a wrapper for calling the Coursera Catalog API
 courses_URL = 'https://api.coursera.org/api/courses.v1'
@@ -10,79 +16,110 @@ instructors_URL = 'https://api.coursera.org/api/instructors.v1'
 
 mod = Blueprint('coursera', __name__)
 
-
-@mod.route('/courses', methods=['GET'])
-def get_all_courses():
+@mod.route('/save_courses', methods=['GET'])
+def save_all_courses():
 	"""
-	Retrieves all the courses and their fields
+	Retrieves all the courses and their fields directly from the Coursera Catalog API and saves it to the RethinkDB server
 	"""
 	fields = ','.join(['id', 'slug', 'courseType', 'name', 'primaryLanguages',
 						'subtitleLanguages', 'partnerLogo', 'instructorIds', 'partnerIds',
 						'photoUrl', 'certificates', 'description', 'startDate', 'workload',
 						'previewLink', 'specializations', 's12nIds', 'domainTypes', 'categories'])
 
-	data = {'elements': []}
+	courses = []
 
 	res = requests.get(courses_URL + '?fields=' + fields + '&start=0&limit=100').json()
-	data['elements'].extend(res['elements'])
+	courses.extend(res['elements'])
 
 	while (res['paging'].get('next') != None):
 		res = requests.get(courses_URL + '?fields=' + fields + '&start=' + res['paging']['next'] + '&limit=100').json()
-		data['elements'].extend(res['elements'])
+		courses.extend(res['elements'])
 
-	return jsonify(data)
+	# Save to the table "courses"
+	try:
+		r.db(config['DB_NAME']).table_create('courses').run(connection)
+		print('Successfully created table courses.')
+	except RqlRuntimeError:
+		print('Table courses already exists.')
+		r.db(config['DB_NAME']).table('courses').delete().run(connection)
+	finally:
+		r.db(config['DB_NAME']).table('courses').insert(courses).run(connection)
+		print('Successfully inserted all the courses.')
 
-@mod.route('/instructors', methods=['GET'])
-def get_all_instructors():
+	return jsonify({'message': 'Successfully inserted all the courses.'})
+
+
+@mod.route('/save_instructors', methods=['GET'])
+def save_all_instructors():
 	"""
-	Retrieves all the instructors and their fields
+	Retrieves all the instructors and their fields directly from the Coursera Catalog API and saves it to the RethinkDB server
 	"""
 	fields = ','.join(['id', 'photo', 'photo150', 'bio', 'prefixName', 'firstName', 'middleName',
 						'lastName', 'suffixName', 'fullName', 'title', 'department', 'website',
 						'websiteTwitter', 'websiteFacebook', 'websiteLinkedin', 'websiteGplus', 'shortName'])
 
-	data = {'elements': []}
+	instructors = []
 
 	res = requests.get(instructors_URL + '?fields=' + fields + '&start=0&limit=100').json()
-	data['elements'].extend(res['elements'])
+	instructors.extend(res['elements'])
 
 	while (res['paging'].get('next') != None):
 		res = requests.get(instructors_URL + '?fields=' + fields + '&start=' + res['paging']['next'] + '&limit=100').json()
-		data['elements'].extend(res['elements'])
+		instructors.extend(res['elements'])
 
-	return jsonify(data)
+	# Save to the table "instructors"
+	try:
+		r.db(config['DB_NAME']).table_create('instructors').run(connection)
+		print('Successfully created table instructors.')
+	except RqlRuntimeError:
+		print('Table instructors already exists.')
+		r.db(config['DB_NAME']).table('instructors').delete().run(connection)
+	finally:
+		r.db(config['DB_NAME']).table('instructors').insert(instructors).run(connection)
+		print('Successfully inserted all the instructors.')
 
-@mod.route('/partners', methods=['GET'])
-def get_all_partners():
+	return jsonify({'message': 'Successfully inserted all the instructors.'})
+
+
+@mod.route('/save_partners', methods=['GET'])
+def save_all_partners():
 	"""
-	Retrieves all the partners and their fields
+	Retrieves all the partners and their fields directly from the Coursera Catalog API and saves it to the RethinkDB server
 	"""
 	fields = ','.join(['id', 'name', 'shortName', 'description', 'banner', 'courseIds', 'instructorIds',
 						'primaryColor', 'logo', 'squareLogo', 'rectangularLogo', 'links', 'location'])
 
-	data = {'elements': []}
+	partners = []
 
 	res = requests.get(partners_URL + '?fields=' + fields + '&start=0&limit=100').json()
-	data['elements'].extend(res['elements'])
+	partners.extend(res['elements'])
 
 	while (res['paging'].get('next') != None):
 		res = requests.get(partners_URL + '?fields=' + fields + '&start=' + res['paging']['next'] + '&limit=100').json()
-		data['elements'].extend(res['elements'])
+		partners.extend(res['elements'])
 
-	return jsonify(data)
+	# Save to the table "partners"
+	try:
+		r.db(config['DB_NAME']).table_create('partners').run(connection)
+		print('Successfully created table partners.')
+	except RqlRuntimeError:
+		print('Table partners already exists.')
+		r.db(config['DB_NAME']).table('partners').delete().run(connection)
+	finally:
+		r.db(config['DB_NAME']).table('partners').insert(partners).run(connection)
+		print('Successfully inserted all the partners.')
 
-@mod.route('/partners/location', methods=['GET'])
-def get_all_partners_location():
+	return jsonify({'message': 'Successfully inserted all the partners.'})
+
+
+@mod.route('/partner/<partner_id>/courses', methods=['GET'])
+def get_all_courses_offered(partner_id):
 	"""
-	Retrieves all the partner locations
+	Retrieves all the courses offered by an institution/partner
 	"""
-	data = {'elements': []}
+	data = {'courses': []}
 
-	res = requests.get(partners_URL + '?fields=location&start=0&limit=100').json()
-	data['elements'].extend(res['elements'])
-
-	while (res['paging'].get('next') != None):
-		res = requests.get(partners_URL + '?fields=location&start=' + res['paging']['next'] + '&limit=100').json()
-		data['elements'].extend(res['elements'])
+	res = requests.get(partners_URL + '/' + partner_id + '?includes=courseIds').json()
+	data['courses'].extend(res['linked']['courses.v1'])
 
 	return jsonify(data)
