@@ -1,6 +1,7 @@
+import sys
+import os
 import time
 import json
-import os
 import rethinkdb as r
 
 from rethinkdb.errors import RqlRuntimeError
@@ -11,7 +12,12 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.common.exceptions import TimeoutException
+
+dir_path = os.path.dirname(os.path.realpath(__file__))
+sys.path.insert(0, dir_path + "/../configuration")
+sys.path.insert(0, dir_path + "/../lib")
 from config import config
+from rethinkdb_connect import connection
 
 
 class CourseraScraper:
@@ -43,7 +49,7 @@ class CourseraScraper:
 
 				print(slug, 'is written to scraped.json...')
 			else:
-				print(base_url + slug, 'is already scraped...')
+				print(self.base_url + slug, 'is already scraped...')
 
 		print('Overall total number of reviews fetched:', str(self.overall_reviews))
 		driver.close()
@@ -69,15 +75,14 @@ class CourseraScraper:
 		"""
 		Initializes the connection to the RethinkDB server
 		"""
-		self.connection = r.connect(config['HOST'], config['PORT'])
 		try:
-			r.db_create(config['DB_NAME']).run(self.connection)
+			r.db_create(config['DB_NAME']).run(connection)
 			print('Database', config['DB_NAME'], 'is now created.')
 		except RqlRuntimeError:
 			print('Database', config['DB_NAME'], 'already exists.')
 
 		try:
-			r.db(config['DB_NAME']).table_create('reviews').run(self.connection)
+			r.db(config['DB_NAME']).table_create('reviews').run(connection)
 			print('reviews table has been created.')
 		except RqlRuntimeError:
 			print('Table reviews already exists.')
@@ -137,7 +142,7 @@ class CourseraScraper:
 			self.overall_reviews += 1
 
 		# Insert to the table 'reviews' of the database 'mooc'
-		r.db(config['DB_NAME']).table('reviews').insert(reviews).run(self.connection)
+		r.db(config['DB_NAME']).table('reviews').insert(reviews).run(connection)
 		print('Reviews for', slug, 'was added to database:', config['DB_NAME'] + ', table: reviews')
 		print('Total reviews:', str(total_reviews))
 
