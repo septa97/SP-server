@@ -12,28 +12,19 @@ from app.utils.db_manipulation import save_to_LR, save_to_SVM, save_to_MLP
 
 mod = Blueprint('classifier', __name__)
 
-@mod.route('/logistic-regression', methods=['POST'])
+@mod.route('/train', methods=['POST'])
 def train_LR():
 	data = request.get_json(force=True)
-	script, div, training_score, test_score, training_size = LogisticRegression(test_size=data['testDataSize'])
-	save_to_LR(script, div, training_score, test_score, training_size)
 
-	return jsonify({'message': 'Done training using Logistic Regression. You can view the visualization in the Visualization tab later.'})
-
-
-@mod.route('/support-vector-machine', methods=['POST'])
-def train_SVM():
-	data = request.get_json(force=True)
-	script, div, training_score, test_score, training_size = SupportVectorMachine(test_size=data['testDataSize'])
-	save_to_SVM(script, div, training_score, test_score, training_size)
-
-	return jsonify({'message': 'Done training using Support Vector Machine. You can view the visualization in the Visualization tab later.'})
-
-
-@mod.route('/multi-layer-perceptron', methods=['POST'])
-def train_MLP():
-	data = request.get_json(force=True)
-	script, div, training_score, test_score, training_size = MultiLayerPerceptron(test_size=data['testDataSize'])
-	save_to_MLP(script, div, training_score, test_score, training_size)
-
-	return jsonify({'message': 'Done training using Multi-layer Perceptron. You can view the visualization in the Visualization tab later.'})
+	if (data['classifier'] == 'LR'):
+		script, div, training_score, test_score, training_size = LogisticRegression(test_size=data['testDataSize'])
+		save_to_LR(script, div, training_score, test_score, training_size)
+		return jsonify({'message': 'Done training using Logistic Regression. You can view the visualization in the Visualization tab later.'})
+	elif (data['classifier'] == 'SVM'):
+		script, div, training_score, test_score, training_size = SupportVectorMachine(test_size=data['testDataSize'])
+		save_to_SVM(script, div, training_score, test_score, training_size)
+		return jsonify({'message': 'Done training using Support Vector Machine. You can view the visualization in the Visualization tab later.'})
+	else:
+		script, div, training_score, test_score, training_size = MultiLayerPerceptron(test_size=data['testDataSize'])
+		save_to_MLP(script, div, training_score, test_score, training_size)
+		return jsonify({'message': 'Done training using Multi-layer Perceptron. You can view the visualization in the Visualization tab later.'})
