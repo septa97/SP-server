@@ -11,6 +11,9 @@ mod = Blueprint('rethinkdb', __name__)
 
 @mod.route('/reviews', methods=['GET'])
 def get_all_reviews():
+	"""
+	Retrieves all the reviews from the RethinkDB server
+	"""
 	cursor = r.db(config['DB_NAME']).table('reviews').run(connection)
 	reviews = []
 	rows = []
@@ -23,6 +26,19 @@ def get_all_reviews():
 		reviews.extend(row[slug])
 
 	return jsonify(reviews)
+
+
+@mod.route('/data-and-labels', methods=['GET'])
+def get_all_data_and_labels():
+	"""
+	Retrieves all the data and its corresponding labels (i.e., the X and y tables in the RethinkDB server)
+	"""
+	data = {
+		'data': r.db(config['DB_NAME']).table('X').nth(0).run(connection)['X'],
+		'labels': r.db(config['DB_NAME']).table('y').nth(0).run(connection)['y']
+	}
+
+	return jsonify(data)
 
 
 @mod.route('/courses', methods=['GET'])
@@ -256,3 +272,4 @@ def get_all_course_review_words_neutral(course_id):
 		data['words'].extend(words)
 
 	return jsonify(data)
+
