@@ -1,12 +1,14 @@
+import sys
+import os
 import operator
-from preprocessor import preprocess
+import rethinkdb as r
 
-dir_path = os.path.dirname(os.path.realpath(__file__))
-sys.path.insert(0, dir_path + "/../configuration")
-from config import config
+from app.configuration.config import config
+from app.modules.preprocessor import preprocess
+from app.lib.rethinkdb_connect import connection
 
 
-def create_vocabulary_list(reviews):
+def create_vocabulary_list(reviews, vocab_size):
 	"""
 	Creates a list of the top VOCAB_SIZE words (sorted by their frequency in descending order)
 	"""
@@ -14,10 +16,23 @@ def create_vocabulary_list(reviews):
 	tuple_list = get_vocabulary_list(reviews)
 
 	print('Number of unique words:', len(tuple_list))
-	for i in range(config['VOCAB_SIZE']):
+	for i in range(vocab_size):
 		vocab_list.append(tuple_list[i][0])
 
-	return vocab_list
+	obj = {
+		str(vocab_size): vocab_list,
+		'size': vocab_size
+	}
+
+	# Delete all rows of vocab table
+	r.db(config['DB_NAME']).table('vocab').filter({
+		'size': vocab_size
+	}).delete().run(connection)
+	print('All vocab rows are deleted.')
+
+	# Insert to vocab table
+	r.db(config['DB_NAME']).table('vocab').insert(obj).run(connection)
+	print('New vocab rows are inserted.')
 
 
 def get_vocabulary_list(reviews):
@@ -35,6 +50,7 @@ def get_vocabulary_list(reviews):
 			continue
 
 		total += 1
+		print(total)
 		for token in tokens:
 			if token in freq_map:
 				freq_map[token] += 1

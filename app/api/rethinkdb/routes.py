@@ -2,9 +2,12 @@ import rethinkdb as r
 
 from flask import Blueprint, jsonify
 from nltk.corpus import sentiwordnet as swn
+
 from app.configuration.config import config
 from app.lib.rethinkdb_connect import connection
+from app.modules.features import FeaturePreprocessor
 from app.modules.preprocessor import preprocess
+from app.modules.vocabulary import create_vocabulary_list
 
 
 mod = Blueprint('rethinkdb', __name__)
@@ -26,19 +29,6 @@ def get_all_reviews():
 		reviews.extend(row[slug])
 
 	return jsonify(reviews)
-
-
-@mod.route('/data-and-labels', methods=['GET'])
-def get_all_data_and_labels():
-	"""
-	Retrieves all the data and its corresponding labels (i.e., the X and y tables in the RethinkDB server)
-	"""
-	data = {
-		'data': r.db(config['DB_NAME']).table('X').nth(0).run(connection)['X'],
-		'labels': r.db(config['DB_NAME']).table('y').nth(0).run(connection)['y']
-	}
-
-	return jsonify(data)
 
 
 @mod.route('/courses', methods=['GET'])
@@ -101,15 +91,15 @@ def get_all_partners_location():
 	return jsonify(data)
 
 
-@mod.route('/course/<course_id>/reviews/preprocessed-words/overall', methods=['GET'])
-def get_all_course_review_words_overall(course_id):
+@mod.route('/course/<course_slug>/reviews/preprocessed-words/overall', methods=['GET'])
+def get_all_course_review_words_overall(course_slug):
 	"""
 	Retrieves all the preprocessed words
 	"""
 	data = {'words': []}
 
 	cursor = r.db(config['DB_NAME']).table('reviews').filter({
-			'id': course_id
+			'id': course_slug
 		}).run(connection)
 
 	row = []
@@ -133,15 +123,15 @@ def get_all_course_review_words_overall(course_id):
 	return jsonify(data)
 
 
-@mod.route('/course/<course_id>/reviews/preprocessed-words/positive', methods=['GET'])
-def get_all_course_review_words_positive(course_id):
+@mod.route('/course/<course_slug>/reviews/preprocessed-words/positive', methods=['GET'])
+def get_all_course_review_words_positive(course_slug):
 	"""
 	Retrieves all the preprocessed positive words
 	"""
 	data = {'words': []}
 
 	cursor = r.db(config['DB_NAME']).table('reviews').filter({
-			'id': course_id
+			'id': course_slug
 		}).run(connection)
 
 	row = []
@@ -180,15 +170,15 @@ def get_all_course_review_words_positive(course_id):
 	return jsonify(data)
 
 
-@mod.route('/course/<course_id>/reviews/preprocessed-words/negative', methods=['GET'])
-def get_all_course_review_words_negative(course_id):
+@mod.route('/course/<course_slug>/reviews/preprocessed-words/negative', methods=['GET'])
+def get_all_course_review_words_negative(course_slug):
 	"""
 	Retrieves all the preprocessed negative words
 	"""
 	data = {'words': []}
 
 	cursor = r.db(config['DB_NAME']).table('reviews').filter({
-			'id': course_id
+			'id': course_slug
 		}).run(connection)
 
 	row = []
@@ -227,15 +217,15 @@ def get_all_course_review_words_negative(course_id):
 	return jsonify(data)
 
 
-@mod.route('/course/<course_id>/reviews/preprocessed-words/neutral', methods=['GET'])
-def get_all_course_review_words_neutral(course_id):
+@mod.route('/course/<course_slug>/reviews/preprocessed-words/neutral', methods=['GET'])
+def get_all_course_review_words_neutral(course_slug):
 	"""
 	Retrieves all the preprocessed neutral words
 	"""
 	data = {'words': []}
 
 	cursor = r.db(config['DB_NAME']).table('reviews').filter({
-			'id': course_id
+			'id': course_slug
 		}).run(connection)
 
 	row = []
@@ -273,3 +263,35 @@ def get_all_course_review_words_neutral(course_id):
 
 	return jsonify(data)
 
+
+@mod.route('/extract-vocab/<int:vocab_size>', methods=['GET'])
+def extract_vocab(vocab_size):
+	"""
+	Extracts the top vocab_size vocabularies
+	"""
+	cursor = r.db(config['DB_NAME']).table('reviews').run(connection)
+
+	rows = []
+	reviews = []
+
+	for document in cursor:
+		rows.append(document)
+
+	for row in rows:
+		slug = list(filter(lambda k: k != 'id', row.keys()))[0]
+		reviews.extend(row[slug])
+
+	create_vocabulary_list(reviews, vocab_size)
+
+	return jsonify({'message': 'Successfully extracted the top ' + str(vocab_size) + ' vocabularies.'})
+
+
+@mod.route('/extract-features/<int:vocab_size>', methods=['GET'])
+def extract_features(vocab_size):
+	"""
+	Extracts the features of all the reviews
+	"""
+	feature_preprocessor = FeaturePreprocessor(vocab_size)
+	num_of_english_reviews = feature_preprocessor.start(use_existing_vocab=True)
+
+	return jsonify({'message': 'Successfully extracted the features of ' + str(num_of_english_reviews) + ' English reviews.'})
