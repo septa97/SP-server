@@ -94,7 +94,10 @@ class CourseraScraper:
 		and then insert it to the database
 		"""
 		print('Scraping ' + self.base_url + slug + '...')
-		reviews = {slug: []}
+		reviews = {
+			'id': slug,
+			'data': []
+		}
 
 		self.driver.get(self.base_url + slug)
 		try:
@@ -136,7 +139,7 @@ class CourseraScraper:
 			for paragraph in paragraphs:
 				review += paragraph.text
 
-			reviews[slug].append(review)
+			reviews['data'].append(review)
 
 			total_reviews += 1
 			self.overall_reviews += 1
