@@ -3,12 +3,16 @@ import os
 import operator
 import rethinkdb as r
 
-from app.configuration.config import config
-from app.modules.preprocessor import preprocess
 from app.lib.rethinkdb_connect import connection
+from app.modules.preprocessor import preprocess
+# dir_path = os.path.dirname(os.path.realpath(__file__))
+# sys.path.insert(0, dir_path + "/../lib")
+# from rethinkdb_connect import connection
+# sys.path.insert(0, dir_path + "/../modules")
+# from preprocessor import preprocess
 
 
-def create_vocabulary_list(reviews, vocab_size):
+def create_vocabulary_list(reviews, vocab_size, model):
 	"""
 	Creates a list of the top VOCAB_SIZE words (sorted by their frequency in descending order)
 	"""
@@ -19,19 +23,20 @@ def create_vocabulary_list(reviews, vocab_size):
 	for i in range(vocab_size):
 		vocab_list.append(tuple_list[i][0])
 
-	obj = {
-		str(vocab_size): vocab_list,
-		'size': vocab_size
-	}
-
 	# Delete all rows of vocab table
-	r.db(config['DB_NAME']).table('vocab').filter({
-		'size': vocab_size
+	r.table('vocab').filter({
+		'id': model
 	}).delete().run(connection)
 	print('All vocab rows are deleted.')
 
+	obj = {
+		'id': model,
+		'size': vocab_size,
+		'data': vocab_list
+	}
+
 	# Insert to vocab table
-	r.db(config['DB_NAME']).table('vocab').insert(obj).run(connection)
+	r.table('vocab').insert(obj).run(connection)
 	print('New vocab rows are inserted.')
 
 

@@ -17,10 +17,10 @@ def main():
 		for element in data['elements']:
 			slugs['elements'].append(element['slug'])
 
-	dir_path = os.path.dirname(os.path.realpath(__file__)) + '/../data';
+	dir_path = os.path.dirname(os.path.realpath(__file__)) + '/../data'
 	os.makedirs(dir_path, exist_ok=True)
 	with open(dir_path + '/slugs.json', 'w') as fp:
-		json.dump(slugs, fp)
+		json.dump(slugs, fp, indent=2)
 
 	print('Slugs are written to slugs.json...')
 

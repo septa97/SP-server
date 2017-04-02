@@ -17,12 +17,7 @@ def preprocess(review):
 	Preprocess a review
 	"""
 
-	# Check if the language of the review is English and proceed if it is English
-	try:
-		language = langdetect.detect(review)
-		if (language != 'en'):
-			return -1
-	except LangDetectException:
+	if not is_English(review):
 		return -1
 
 	# Convert to lowercase
@@ -37,6 +32,20 @@ def preprocess(review):
 	# pos_tags = nltk.pos_tag(tokens)
 
 	return tokens
+
+
+def is_English(review):
+	"""
+	Check if the language of a review is English
+	"""
+	try:
+		language = langdetect.detect(review)
+		if language != 'en':
+			return False
+	except LangDetectException:
+		return False
+
+	return True
 
 
 def remove_stop_words(original_tokens):

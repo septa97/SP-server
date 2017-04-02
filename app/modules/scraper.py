@@ -13,11 +13,16 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.common.exceptions import TimeoutException
 
+# from app.configuration.config import config
+# from app.lib.rethinkdb_connect import connection
+# from app.utils.rethinkdb_helpers import create_or_delete_table
 dir_path = os.path.dirname(os.path.realpath(__file__))
-sys.path.insert(0, dir_path + "/../configuration")
-sys.path.insert(0, dir_path + "/../lib")
+sys.path.insert(0, dir_path + '/../configuration')
 from config import config
+sys.path.insert(0, dir_path + '/../lib')
 from rethinkdb_connect import connection
+sys.path.insert(0, dir_path + '/../utils')
+from rethinkdb_helpers import create_or_delete_table
 
 
 class CourseraScraper:
@@ -37,17 +42,17 @@ class CourseraScraper:
 		Start the scraping
 		"""
 		for slug in self.slugs['elements']:
-			if (slug not in self.scraped['elements']):
+			if slug not in self.scraped['elements']:
 				self.scrape_reviews(slug)
 				self.scraped['elements'].append(slug)
 
 				# Write to file everytime a course is scraped
 				dir_path = os.path.dirname(os.path.realpath(__file__)) + '/../data'
 				os.makedirs(dir_path, exist_ok=True)
-				with open(dir_path + '/scraped.json', 'w') as fp:
-					json.dump(self.scraped, fp)
+				with open(dir_path + '/real_scraped.json', 'w') as fp:
+					json.dump(self.scraped, fp, indent=2)
 
-				print(slug, 'is written to scraped.json...')
+				print(slug, 'is written to real_scraped.json...')
 			else:
 				print(self.base_url + slug, 'is already scraped...')
 
@@ -77,15 +82,11 @@ class CourseraScraper:
 		"""
 		try:
 			r.db_create(config['DB_NAME']).run(connection)
-			print('Database', config['DB_NAME'], 'is now created.')
+			print('Successfully created database %s.' % config['DB_NAME'])
 		except RqlRuntimeError:
 			print('Database', config['DB_NAME'], 'already exists.')
 
-		try:
-			r.db(config['DB_NAME']).table_create('reviews').run(connection)
-			print('reviews table has been created.')
-		except RqlRuntimeError:
-			print('Table reviews already exists.')
+		print(create_or_delete_table('reviews'))
 
 
 	def scrape_reviews(self, slug):
@@ -96,7 +97,8 @@ class CourseraScraper:
 		print('Scraping ' + self.base_url + slug + '...')
 		reviews = {
 			'id': slug,
-			'data': []
+			'data': [],
+			'ratings': []
 		}
 
 		self.driver.get(self.base_url + slug)
@@ -131,9 +133,14 @@ class CourseraScraper:
 
 
 		total_reviews = 0
-		divs = self.driver.find_elements_by_class_name('rc-CML')
+		divs = self.driver.find_elements_by_class_name('rc-CourseReview')
+
 		for div in divs:
-			paragraphs = div.find_element_by_tag_name('div').find_elements_by_tag_name('p')
+			# Extract the text
+			paragraphs = div.find_element_by_tag_name('div') \
+							.find_element_by_class_name('rc-CML') \
+							.find_element_by_tag_name('div') \
+							.find_elements_by_tag_name('p')
 
 			review = ''
 			for paragraph in paragraphs:
@@ -144,8 +151,15 @@ class CourseraScraper:
 			total_reviews += 1
 			self.overall_reviews += 1
 
+			# Extract the reviews
+			stars = div.find_element_by_tag_name('div') \
+						.find_element_by_class_name('rc-CourseRatingIcons') \
+						.find_elements_by_class_name('cif-star')
+
+			reviews['ratings'].append(len(stars))
+
 		# Insert to the table 'reviews' of the database 'mooc'
-		r.db(config['DB_NAME']).table('reviews').insert(reviews).run(connection)
+		r.table('reviews').insert(reviews).run(connection)
 		print('Reviews for', slug, 'was added to database:', config['DB_NAME'] + ', table: reviews')
 		print('Total reviews:', str(total_reviews))
 
@@ -153,7 +167,7 @@ class CourseraScraper:
 if __name__ == "__main__":
 	paths = {
 		'slugs': os.path.dirname(os.path.realpath(__file__)) + '/../data/slugs.json',
-		'scraped': os.path.dirname(os.path.realpath(__file__)) + '/../data/scraped.json'
+		'scraped': os.path.dirname(os.path.realpath(__file__)) + '/../data/real_scraped.json'
 	}
 
 	scraper = CourseraScraper('https://www.coursera.org/learn/', paths)
