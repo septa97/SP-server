@@ -3,22 +3,30 @@ import rethinkdb as r
 from rethinkdb.errors import RqlRuntimeError
 
 from app.lib.rethinkdb_connect import connection
-from app.configuration.config import config
+from app.utils.rethinkdb_helpers import create_or_delete_table
 
 
-def save_to_accuracy(training_score, test_score, training_size, classifier):
+def save_to_performance(train_score, test_score, train_size, test_size, cm_train, cm_test, classifier):
 	"""
-	Save all the important information (after training and testing) to the table accuracy
+	Save all the important performance measures to the table performance
 	"""
-	try:
-		r.db(config['DB_NAME']).table_create('accuracy').run(connection)
-		print('Table accuracy successfully created.')
-	except RqlRuntimeError:
-		print('Table accuracy already exists.')
 
-	r.db(config['DB_NAME']).table('accuracy').insert({
+	print(create_or_delete_table('performance'))
+
+	# Delete all existing documents with "classifier" of <classifier"
+
+	r.table('performance').filter({
+			'classifier': classifier
+		}).delete().run(connection)
+
+
+	# Insert the current data
+	r.table('performance').insert({
 			'classifier': classifier,
-			'training_score': training_score,
+			'train_score': train_score,
+			'train_size': train_size,
 			'test_score': test_score,
-			'training_size': training_size
+			'test_size': test_size,
+			'cm_train': cm_train.tolist(),
+			'cm_test': cm_test.tolist()
 		}).run(connection)

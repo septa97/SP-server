@@ -9,7 +9,7 @@ def accuracy_score(actual, predicted):
 	correct = 0
 
 	for i in range(0, m):
-		if (actual[i] == predicted[i]):
+		if actual[i] == predicted[i]:
 			correct += 1
 
 	return correct / m
