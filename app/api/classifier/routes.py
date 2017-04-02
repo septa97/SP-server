@@ -45,22 +45,17 @@ def train():
 
 @mod.route('/existing-informations', methods=['GET'])
 def get_existing_informations():
-	data = {
-		'LR': [],
-		'SVM': [],
-		'MLP': []
-	}
+	data = {}
 
 	cursor = r.table('performance').run(connection)
-
 	for document in cursor:
-		data[document['classifier']].append({
-				'train_size': document['train_size'],
-				'train_score': document['train_score'],
-				'test_size': document['test_size'],
-				'test_score': document['test_score'],
-				'cm_train': document['cm_train'],
-				'cm_test': document['cm_test']
-			})
+		data[document['classifier']] = {
+			'train_size': document['train_size'],
+			'train_score': document['train_score'],
+			'test_size': document['test_size'],
+			'test_score': document['test_score'],
+			'cm_train': document['cm_train'],
+			'cm_test': document['cm_test']
+		}
 
 	return jsonify(data)
