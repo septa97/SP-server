@@ -7,6 +7,7 @@ from flask import Blueprint, jsonify
 from rethinkdb.errors import RqlRuntimeError
 from app.configuration.config import config
 from app.lib.rethinkdb_connect import connection
+from app.utils.rethinkdb_helpers import create_or_delete_table
 
 
 # This blueprint is a wrapper for calling the Coursera Catalog API
@@ -35,16 +36,9 @@ def save_all_courses():
 		res = requests.get(courses_URL + '?fields=' + fields + '&start=' + res['paging']['next'] + '&limit=100').json()
 		courses.extend(res['elements'])
 
-	# Save to the table "courses"
-	try:
-		r.db(config['DB_NAME']).table_create('courses').run(connection)
-		print('Successfully created table courses.')
-	except RqlRuntimeError:
-		print('Table courses already exists.')
-		r.db(config['DB_NAME']).table('courses').delete().run(connection)
-	finally:
-		r.db(config['DB_NAME']).table('courses').insert(courses).run(connection)
-		print('Successfully inserted all the courses.')
+	print(create_or_delete_table('courses', delete=True))
+	r.table('courses').insert(courses).run(connection)
+	print('Successfully inserted all the courses.')
 
 	return jsonify({'message': 'Successfully inserted all the courses.'})
 
@@ -67,16 +61,9 @@ def save_all_instructors():
 		res = requests.get(instructors_URL + '?fields=' + fields + '&start=' + res['paging']['next'] + '&limit=100').json()
 		instructors.extend(res['elements'])
 
-	# Save to the table "instructors"
-	try:
-		r.db(config['DB_NAME']).table_create('instructors').run(connection)
-		print('Successfully created table instructors.')
-	except RqlRuntimeError:
-		print('Table instructors already exists.')
-		r.db(config['DB_NAME']).table('instructors').delete().run(connection)
-	finally:
-		r.db(config['DB_NAME']).table('instructors').insert(instructors).run(connection)
-		print('Successfully inserted all the instructors.')
+	print(create_or_delete_table('instructors', delete=True))
+	r.table('instructors').insert(instructors).run(connection)
+	print('Successfully inserted all the instructors.')
 
 	return jsonify({'message': 'Successfully inserted all the instructors.'})
 
@@ -98,16 +85,9 @@ def save_all_partners():
 		res = requests.get(partners_URL + '?fields=' + fields + '&start=' + res['paging']['next'] + '&limit=100').json()
 		partners.extend(res['elements'])
 
-	# Save to the table "partners"
-	try:
-		r.db(config['DB_NAME']).table_create('partners').run(connection)
-		print('Successfully created table partners.')
-	except RqlRuntimeError:
-		print('Table partners already exists.')
-		r.db(config['DB_NAME']).table('partners').delete().run(connection)
-	finally:
-		r.db(config['DB_NAME']).table('partners').insert(partners).run(connection)
-		print('Successfully inserted all the partners.')
+	print(create_or_delete_table('partners', delete=True))
+	r.table('partners').insert(partners).run(connection)
+	print('Successfully inserted all the partners.')
 
 	return jsonify({'message': 'Successfully inserted all the partners.'})
 

@@ -2,12 +2,14 @@ import rethinkdb as r
 
 from flask import Blueprint, jsonify
 from nltk.corpus import sentiwordnet as swn
+from pydash.collections import count_by
+from textblob import TextBlob
 
-from app.configuration.config import config
 from app.lib.rethinkdb_connect import connection
 from app.modules.features import FeaturePreprocessor
 from app.modules.preprocessor import preprocess
 from app.modules.vocabulary import create_vocabulary_list
+from app.modules.labeller import Labeller
 
 
 mod = Blueprint('rethinkdb', __name__)
@@ -17,16 +19,11 @@ def get_all_reviews():
 	"""
 	Retrieves all the reviews from the RethinkDB server
 	"""
-	cursor = r.db(config['DB_NAME']).table('reviews').run(connection)
+	cursor = r.table('reviews').run(connection)
 	reviews = []
-	rows = []
 
 	for document in cursor:
-		rows.append(document)
-
-	for row in rows:
-		slug = list(filter(lambda k: k != 'id', row.keys()))[0]
-		reviews.extend(row[slug])
+		reviews.extend(document['data'])
 
 	return jsonify(reviews)
 
@@ -38,7 +35,7 @@ def get_all_courses():
 	"""
 	data = {'courses': []}
 
-	cursor = r.db(config['DB_NAME']).table('courses').run(connection)
+	cursor = r.table('courses').run(connection)
 
 	for document in cursor:
 		data['courses'].append(document)
@@ -53,7 +50,7 @@ def get_all_instructors():
 	"""
 	data = {'instructors': []}
 
-	cursor = r.db(config['DB_NAME']).table('instructors').run(connection)
+	cursor = r.table('instructors').run(connection)
 
 	for document in cursor:
 		data['instructors'].append(document)
@@ -68,7 +65,7 @@ def get_all_partners():
 	"""
 	data = {'partners': []}
 
-	cursor = r.db(config['DB_NAME']).table('partners').run(connection)
+	cursor = r.table('partners').run(connection)
 
 	for document in cursor:
 		data['partners'].append(document)
@@ -83,7 +80,7 @@ def get_all_partners_location():
 	"""
 	data = {'elements': []}
 
-	cursor = r.db(config['DB_NAME']).table('partners').pluck('id', 'location', 'name').run(connection)
+	cursor = r.table('partners').pluck('id', 'location', 'name').run(connection)
 
 	for document in cursor:
 		data['elements'].append(document)
@@ -96,29 +93,29 @@ def get_all_course_review_words_overall(course_slug):
 	"""
 	Retrieves all the preprocessed words
 	"""
-	data = {'words': []}
+	data = {}
 
-	cursor = r.db(config['DB_NAME']).table('reviews').filter({
-			'id': course_slug
-		}).run(connection)
+	cursor = r.table('reviews').filter({
+				'id': course_slug
+			}).run(connection)
 
-	row = []
+	reviews = []
 	for document in cursor:
-		row.append(document)
+		reviews.extend(document['data'])
 
-	if (len(row) == 0):
+	if len(reviews) == 0:
 		return jsonify(data)
 
-	slug = list(filter(lambda k: k != 'id', row[0].keys()))[0]
-	reviews = row[0][slug]
-
+	words = []
 	for review in reviews:
 		tokens = preprocess(review)
 
-		if (tokens == -1):
+		if tokens == -1:
 			continue
 
-		data['words'].extend(tokens)
+		words.extend(tokens)
+
+	data['word_mapping'] = count_by(words)
 
 	return jsonify(data)
 
@@ -128,44 +125,37 @@ def get_all_course_review_words_positive(course_slug):
 	"""
 	Retrieves all the preprocessed positive words
 	"""
-	data = {'words': []}
+	data = {}
 
-	cursor = r.db(config['DB_NAME']).table('reviews').filter({
-			'id': course_slug
-		}).run(connection)
+	cursor = r.table('reviews').filter({
+				'id': course_slug
+			}).run(connection)
 
-	row = []
+	reviews = []
 	for document in cursor:
-		row.append(document)
+		reviews.extend(document['data'])
 
-	if (len(row) == 0):
+	if len(reviews) == 0:
 		return jsonify(data)
 
-	slug = list(filter(lambda k: k != 'id', row[0].keys()))[0]
-	reviews = row[0][slug]
-
+	overall_words = []
 	for review in reviews:
 		tokens = preprocess(review)
 
-		if (tokens == -1):
+		if tokens == -1:
 			continue
 
 		# Check each word if positive
 		words = []
 		for word in tokens:
-			synset_list = list(swn.senti_synsets(word))
+			tb = TextBlob(word)
 
-			if (len(synset_list) == 0):
-				continue
-
-			score = 0
-			for synset in synset_list:
-				score += (synset.pos_score() - synset.neg_score())
-
-			if (score > 0):
+			if tb.sentiment.subjectivity != 0 and tb.sentiment.polarity > 0:
 				words.append(word)
 
-		data['words'].extend(words)
+		overall_words.extend(words)
+
+	data['word_mapping'] = count_by(overall_words)
 
 	return jsonify(data)
 
@@ -175,44 +165,37 @@ def get_all_course_review_words_negative(course_slug):
 	"""
 	Retrieves all the preprocessed negative words
 	"""
-	data = {'words': []}
+	data = {}
 
-	cursor = r.db(config['DB_NAME']).table('reviews').filter({
-			'id': course_slug
-		}).run(connection)
+	cursor = r.table('reviews').filter({
+				'id': course_slug
+			}).run(connection)
 
-	row = []
+	reviews = []
 	for document in cursor:
-		row.append(document)
+		reviews.extend(document['data'])
 
-	if (len(row) == 0):
+	if len(reviews) == 0:
 		return jsonify(data)
 
-	slug = list(filter(lambda k: k != 'id', row[0].keys()))[0]
-	reviews = row[0][slug]
-
+	overall_words = []
 	for review in reviews:
 		tokens = preprocess(review)
 
-		if (tokens == -1):
+		if tokens == -1:
 			continue
 
 		# Check each word if negative
 		words = []
 		for word in tokens:
-			synset_list = list(swn.senti_synsets(word))
+			tb = TextBlob(word)
 
-			if (len(synset_list) == 0):
-				continue
-
-			score = 0
-			for synset in synset_list:
-				score += (synset.pos_score() - synset.neg_score())
-
-			if (score < 0):
+			if tb.sentiment.subjectivity != 0 and tb.sentiment.polarity < 0:
 				words.append(word)
 
-		data['words'].extend(words)
+		overall_words.extend(words)
+
+	data['word_mapping'] = count_by(overall_words)
 
 	return jsonify(data)
 
@@ -222,76 +205,36 @@ def get_all_course_review_words_neutral(course_slug):
 	"""
 	Retrieves all the preprocessed neutral words
 	"""
-	data = {'words': []}
+	data = {}
 
-	cursor = r.db(config['DB_NAME']).table('reviews').filter({
-			'id': course_slug
-		}).run(connection)
+	cursor = r.table('reviews').filter({
+				'id': course_slug
+			}).run(connection)
 
-	row = []
+	reviews = []
 	for document in cursor:
-		row.append(document)
+		reviews.extend(document['data'])
 
-	if (len(row) == 0):
+	if len(reviews) == 0:
 		return jsonify(data)
 
-	slug = list(filter(lambda k: k != 'id', row[0].keys()))[0]
-	reviews = row[0][slug]
-
+	overall_words = []
 	for review in reviews:
 		tokens = preprocess(review)
 
-		if (tokens == -1):
+		if tokens == -1:
 			continue
 
 		# Check each word if neutral
 		words = []
 		for word in tokens:
-			synset_list = list(swn.senti_synsets(word))
+			tb = TextBlob(word)
 
-			if (len(synset_list) == 0):
-				continue
-
-			objectivity_score = 0
-			for synset in synset_list:
-				objectivity_score += synset.obj_score()
-
-			if (objectivity_score/len(synset_list) >= 0.875):
+			if tb.sentiment.subjectivity == 0 or tb.sentiment.polarity == 0:
 				words.append(word)
 
-		data['words'].extend(words)
+		overall_words.extend(words)
+
+	data['word_mapping'] = count_by(overall_words)
 
 	return jsonify(data)
-
-
-@mod.route('/extract-vocab/<int:vocab_size>', methods=['GET'])
-def extract_vocab(vocab_size):
-	"""
-	Extracts the top vocab_size vocabularies
-	"""
-	cursor = r.db(config['DB_NAME']).table('reviews').run(connection)
-
-	rows = []
-	reviews = []
-
-	for document in cursor:
-		rows.append(document)
-
-	for row in rows:
-		slug = list(filter(lambda k: k != 'id', row.keys()))[0]
-		reviews.extend(row[slug])
-
-	create_vocabulary_list(reviews, vocab_size)
-
-	return jsonify({'message': 'Successfully extracted the top ' + str(vocab_size) + ' vocabularies.'})
-
-
-@mod.route('/extract-features/<int:vocab_size>', methods=['GET'])
-def extract_features(vocab_size):
-	"""
-	Extracts the features of all the reviews
-	"""
-	feature_preprocessor = FeaturePreprocessor(vocab_size)
-	num_of_english_reviews = feature_preprocessor.start(use_existing_vocab=True)
-
-	return jsonify({'message': 'Successfully extracted the features of ' + str(num_of_english_reviews) + ' English reviews.'})
