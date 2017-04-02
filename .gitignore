@@ -6,19 +6,8 @@ app.egg-info/
 
 # Temporary ignored files and folders
 data/
-X.csv
-X_TEMP.csv
-X_temp.txt
-y.csv
-y_TEMP.csv
-y_temp.txt
-vocab.csv
-REMINDERS.txt
-objectivity.txt
-create_temp.py
-test_data.txt
-test_data2.txt
-svm_test.py
-lr_test.py
 change_id.py
+combine_reviews.py
+filter_english_reviews.py
+write_to_txt.py
 schema.txt
