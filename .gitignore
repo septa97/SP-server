@@ -5,7 +5,6 @@ app.egg-info/
 *.log
 
 # Temporary ignored files and folders
-data/
 change_id.py
 combine_reviews.py
 filter_english_reviews.py
