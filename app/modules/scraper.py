@@ -17,12 +17,20 @@ from selenium.common.exceptions import TimeoutException
 # from app.lib.rethinkdb_connect import connection
 # from app.utils.rethinkdb_helpers import create_or_delete_table
 dir_path = os.path.dirname(os.path.realpath(__file__))
-sys.path.insert(0, dir_path + '/../configuration')
-from config import config
-sys.path.insert(0, dir_path + '/../lib')
-from rethinkdb_connect import connection
-sys.path.insert(0, dir_path + '/../utils')
-from rethinkdb_helpers import create_or_delete_table
+# sys.path.insert(0, dir_path + '/../configuration')
+# from config import config
+# sys.path.insert(0, dir_path + '/../lib')
+# from rethinkdb_connect import connection
+# sys.path.insert(0, dir_path + '/../utils')
+# from rethinkdb_helpers import create_or_delete_table
+
+config = {
+	'HOST': 'localhost',
+	'PORT': 28015,
+	'DB_NAME': 'mooc'
+}
+
+connection = r.connect(config['HOST'], config['PORT'], db=config['DB_NAME'])
 
 
 class CourseraScraper:
@@ -34,6 +42,7 @@ class CourseraScraper:
 		self.overall_reviews = 0
 		self.load_slugs_json(paths['slugs'])
 		self.load_scraped_json(paths['scraped'])
+		self.load_number_of_reviews_json(paths['number_of_reviews'])
 		self.init_connection()
 
 
@@ -51,6 +60,9 @@ class CourseraScraper:
 				os.makedirs(dir_path, exist_ok=True)
 				with open(dir_path + '/real_scraped.json', 'w') as fp:
 					json.dump(self.scraped, fp, indent=2)
+
+				with open(dir_path + '/number_of_reviews.json', 'w') as fp:
+					json.dump(self.number_of_reviews, fp, indent=2)
 
 				print(slug, 'is written to real_scraped.json...')
 			else:
@@ -76,6 +88,14 @@ class CourseraScraper:
 			self.scraped = json.load(json_data)
 
 
+	def load_number_of_reviews_json(self, path):
+		"""
+		Loads the list of courses and its expected and actual number of reviews
+		"""
+		with open(path) as json_data:
+			self.number_of_reviews = json.load(json_data)
+
+
 	def init_connection(self):
 		"""
 		Initializes the connection to the RethinkDB server
@@ -86,7 +106,7 @@ class CourseraScraper:
 		except RqlRuntimeError:
 			print('Database', config['DB_NAME'], 'already exists.')
 
-		print(create_or_delete_table('reviews'))
+		# create_or_delete_table('reviews')
 
 
 	def scrape_reviews(self, slug):
@@ -158,16 +178,28 @@ class CourseraScraper:
 
 			reviews['ratings'].append(len(stars))
 
+		expected_reviews = self.driver.find_element_by_class_name('rc-CountHeader') \
+							.find_element_by_class_name('c-value') \
+							.find_element_by_tag_name('span').text
+
 		# Insert to the table 'reviews' of the database 'mooc'
 		r.table('reviews').insert(reviews).run(connection)
 		print('Reviews for', slug, 'was added to database:', config['DB_NAME'] + ', table: reviews')
-		print('Total reviews:', str(total_reviews))
+		print('Expected number of reviews: %s. Total number of reviews scraped: %s' % (expected_reviews, total_reviews))
+
+		self.number_of_reviews[slug] = {
+			'expected': int(expected_reviews.replace(',', '')),
+			'actual': total_reviews
+		}
 
 
 if __name__ == "__main__":
+	dir_path = os.path.dirname(os.path.realpath(__file__))
+
 	paths = {
-		'slugs': os.path.dirname(os.path.realpath(__file__)) + '/../data/slugs.json',
-		'scraped': os.path.dirname(os.path.realpath(__file__)) + '/../data/real_scraped.json'
+		'slugs': dir_path + '/../data/slugs.json',
+		'scraped': dir_path + '/../data/real_scraped.json',
+		'number_of_reviews': dir_path + '/../data/number_of_reviews.json'
 	}
 
 	scraper = CourseraScraper('https://www.coursera.org/learn/', paths)

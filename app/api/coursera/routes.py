@@ -36,7 +36,7 @@ def save_all_courses():
 		res = requests.get(courses_URL + '?fields=' + fields + '&start=' + res['paging']['next'] + '&limit=100').json()
 		courses.extend(res['elements'])
 
-	print(create_or_delete_table('courses', delete=True))
+	create_or_delete_table('courses', delete=True)
 	r.table('courses').insert(courses).run(connection)
 	print('Successfully inserted all the courses.')
 
@@ -61,7 +61,7 @@ def save_all_instructors():
 		res = requests.get(instructors_URL + '?fields=' + fields + '&start=' + res['paging']['next'] + '&limit=100').json()
 		instructors.extend(res['elements'])
 
-	print(create_or_delete_table('instructors', delete=True))
+	create_or_delete_table('instructors', delete=True)
 	r.table('instructors').insert(instructors).run(connection)
 	print('Successfully inserted all the instructors.')
 
@@ -85,7 +85,7 @@ def save_all_partners():
 		res = requests.get(partners_URL + '?fields=' + fields + '&start=' + res['paging']['next'] + '&limit=100').json()
 		partners.extend(res['elements'])
 
-	print(create_or_delete_table('partners', delete=True))
+	create_or_delete_table('partners', delete=True)
 	r.table('partners').insert(partners).run(connection)
 	print('Successfully inserted all the partners.')
 

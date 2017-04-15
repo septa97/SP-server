@@ -5,9 +5,8 @@ import string
 from nltk.corpus import sentiwordnet as swn
 from langdetect.lang_detect_exception import LangDetectException
 
-# Globals
 stopwords = nltk.corpus.stopwords.words('english')
-# langdetect.DetectorFactory.seed = 0
+langdetect.DetectorFactory.seed = 0
 punctuation_table = str.maketrans(string.punctuation, ' ' * len(string.punctuation))
 stemmer = nltk.stem.PorterStemmer()
 
@@ -56,7 +55,7 @@ def remove_stop_words(original_tokens):
 
 	# O(n^2)
 	for token in original_tokens:
-		if (token not in stopwords):
+		if token not in stopwords:
 			preprocessed_tokens.append(token)
 
 	return preprocessed_tokens

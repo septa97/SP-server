@@ -1,18 +1,23 @@
+import logging
 import sys
 import os
+import gensim
 import numpy as np
 import rethinkdb as r
 
 from flask import Blueprint, jsonify, request
 from sklearn.decomposition import PCA, KernelPCA, SparsePCA
 from sklearn.datasets import load_files
-from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 from sklearn.manifold import TSNE
+from textblob import TextBlob
 
 from app.configuration.config import config
 from app.lib.rethinkdb_connect import connection
+from app.modules.preprocessor import preprocess
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
+logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
 
 
 mod = Blueprint('dimensionality-reduction', __name__)
@@ -23,7 +28,19 @@ def principal_component_analysis(min_df, rows, n_components):
 	Returns the PCA dimension-reduced data with n_components as the number of the new dimensions
 	"""
 	data = {
+		'very_positive': {
+			'X': [],
+			'y': [],
+			'z': [],
+			'reviews': []
+		},
 		'positive': {
+			'X': [],
+			'y': [],
+			'z': [],
+			'reviews': []
+		},
+		'neutral': {
 			'X': [],
 			'y': [],
 			'z': [],
@@ -35,7 +52,7 @@ def principal_component_analysis(min_df, rows, n_components):
 			'z': [],
 			'reviews': []
 		},
-		'neutral': {
+		'very_negative': {
 			'X': [],
 			'y': [],
 			'z': [],
@@ -43,8 +60,7 @@ def principal_component_analysis(min_df, rows, n_components):
 		}
 	}
 
-	# Load the vocab size
-	reviews = load_files(dir_path + '/../../data')
+	reviews = load_files(dir_path + '/../../data/reviews/not_corrected')
 	text, y = reviews.data[:rows], reviews.target[:rows]
 	classes = {k: v for k, v in zip(np.unique(y), reviews.target_names)}
 
@@ -74,7 +90,19 @@ def t_distributed_stochastic_neighbor_embedding(min_df, rows, n_components):
 	Returns the tSNE dimension-reduced data with n_components as the number of the new dimensions
 	"""
 	data = {
+		'very_positive': {
+			'X': [],
+			'y': [],
+			'z': [],
+			'reviews': []
+		},
 		'positive': {
+			'X': [],
+			'y': [],
+			'z': [],
+			'reviews': []
+		},
+		'neutral': {
 			'X': [],
 			'y': [],
 			'z': [],
@@ -86,7 +114,7 @@ def t_distributed_stochastic_neighbor_embedding(min_df, rows, n_components):
 			'z': [],
 			'reviews': []
 		},
-		'neutral': {
+		'very_negative': {
 			'X': [],
 			'y': [],
 			'z': [],
@@ -94,8 +122,7 @@ def t_distributed_stochastic_neighbor_embedding(min_df, rows, n_components):
 		}
 	}
 
-	# Load the vocab size
-	reviews = load_files(dir_path + '/../../data')
+	reviews = load_files(dir_path + '/../../data/reviews/not_corrected')
 	text, y = reviews.data[:rows], reviews.target[:rows]
 	classes = {k: v for k, v in zip(np.unique(y), reviews.target_names)}
 
@@ -115,5 +142,43 @@ def t_distributed_stochastic_neighbor_embedding(min_df, rows, n_components):
 
 		if n_components == 3:
 			data[c]['z'] = X_reduced[y == i, 2].tolist()
+
+	return jsonify(data)
+
+
+@mod.route('/word2vec/<int:min_count>/<int:rows>/<int:n_components>', methods=['GET'])
+def word2vec_word_embedding(min_count, rows, n_components):
+	"""
+	Returns the tSNE dimension-reduced data of word embeddings with n_components
+	as the new number of dimensions
+	"""
+	data = {
+		'X': [],
+		'y': [],
+		'z': [],
+		'words': []
+	}
+
+	reviews = load_files(dir_path + '/../../data/reviews/not_corrected').data[:rows]
+
+	preprocessed_reviews = [preprocess(review.decode('utf-8')) for review in reviews]
+	model = gensim.models.Word2Vec(preprocessed_reviews, min_count=min_count, size=400)
+
+	X = []
+
+	for word in model.wv.index2word:
+		X.append(model.wv[word])
+
+	X = np.array(X)
+
+	tsne = TSNE(n_components=n_components, init='pca', random_state=0)
+	X_reduced = tsne.fit_transform(X)
+
+	data['X'] = X_reduced[:, 0].tolist()
+	data['y'] = X_reduced[:, 1].tolist()
+	data['words'] = model.wv.index2word
+
+	if n_components == 3:
+		data['z'] = X_reduced[:, 2].tolist()
 
 	return jsonify(data)
