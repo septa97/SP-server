@@ -3,10 +3,3 @@ venv/
 app.egg-info/
 
 *.log
-
-# Temporary ignored files and folders
-change_id.py
-combine_reviews.py
-filter_english_reviews.py
-write_to_txt.py
-schema.txt
