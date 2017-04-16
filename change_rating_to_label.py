@@ -20,9 +20,12 @@ def main():
 		rows.append(document)
 
 	review_label_tuples = []
+	total = 0
 	for row in rows:
 		reviews = row['data']
 		labels = row['ratings']
+		total += 1
+		print('Preprocessing...', total*100/len(rows), '%', end='\r')
 
 		for i in range(0, len(reviews)):
 			if not is_English(reviews[i]):
@@ -33,6 +36,7 @@ def main():
 	create_or_delete_table('combined_reviews_with_labels', delete=True)
 
 	for i in range(0, len(review_label_tuples)):
+		print('Writing to the database...', i*100//len(review_label_tuples), '%', end='\r')
 		r.table('combined_reviews_with_labels').insert({
 				'id': i,
 				'data': review_label_tuples[i][0],
