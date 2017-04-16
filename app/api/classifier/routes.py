@@ -4,15 +4,20 @@ import nltk
 import numpy as np
 import rethinkdb as r
 
+from eli5.formatters import html, text, as_dict
+from eli5.sklearn import explain_prediction, explain_weights, unhashing
 from flask import Blueprint, jsonify, request
 from sklearn.datasets import load_files
 from sklearn.externals import joblib
-from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
+from sklearn.linear_model import LogisticRegressionCV, LogisticRegression
 from sklearn.metrics import accuracy_score
+from sklearn.model_selection import train_test_split
+from sklearn.pipeline import make_pipeline
 
-from app.models.LR import main as LogisticRegression
-from app.models.SVM import main as SupportVectorMachine
-from app.models.MLP import main as MultiLayerPerceptron
+from app.models.LR import main as LR
+from app.models.SVM import main as SVM
+from app.models.MLP import main as MLP
 from app.lib.rethinkdb_connect import connection
 from app.utils.db_manipulation import save_to_performance
 
@@ -35,7 +40,7 @@ def train():
 		cm_train, cm_test, \
 		f1_score, precision_score, \
 		recall_score, vocabulary, \
-		data_size = LogisticRegression(data_size=data['dataSize'],
+		data_size = LR(data_size=data['dataSize'],
 			min_df=data['minDF'], vocab_model=data['vocabModel'],
 			tf_idf=data['tfIdf'], corrected=data['corrected'])
 	elif data['classifier'] == 'SVM':
@@ -44,7 +49,7 @@ def train():
 		cm_train, cm_test, \
 		f1_score, precision_score, \
 		recall_score, vocabulary, \
-		data_size = SupportVectorMachine(data_size=data['dataSize'],
+		data_size = SVM(data_size=data['dataSize'],
 			min_df=data['minDF'], vocab_model=data['vocabModel'],
 			tf_idf=data['tfIdf'], corrected=data['corrected'])
 	elif data['classifier'] == 'MLP':
@@ -53,7 +58,7 @@ def train():
 		cm_train, cm_test, \
 		f1_score, precision_score, \
 		recall_score, vocabulary, \
-		data_size = MultiLayerPerceptron(data_size=data['dataSize'],
+		data_size = MLP(data_size=data['dataSize'],
 			min_df=data['minDF'], vocab_model=data['vocabModel'],
 			tf_idf=data['tfIdf'], corrected=data['corrected'])
 
@@ -159,15 +164,26 @@ def classify_reviews():
 	Classify all the reviews
 	"""
 	data = request.get_json(force=True)
+	test_size = 0.2
+	min_df = 5
 
-	if data['tfIdf']:
-		clf = joblib.load('%s/../../data/models/%s_%s_tfidf.pkl' % (dir_path, data['classifier'], data['vocabModel']))
-		vocabulary = joblib.load('%s/../../data/vocabulary/%s_tfidf.pkl' % (dir_path, data['vocabModel']))
-	else:
-		clf = joblib.load('%s/../../data/models/%s_%s.pkl' % (dir_path, data['classifier'], data['vocabModel']))
-		vocabulary = joblib.load('%s/../../data/vocabulary/%s.pkl' % (dir_path, data['vocabModel']))
+	reviews = load_files(dir_path + '/../../data/reviews/not_corrected')
 
-	vect = CountVectorizer(vocabulary=vocabulary)
+	text_train, text_test, y_train, y_test = train_test_split(reviews.data, reviews.target, test_size=test_size, random_state=0)
+
+	# if data['tfIdf']:
+	# 	clf = joblib.load('%s/../../data/models/%s_%s_tfidf.pkl' % (dir_path, data['classifier'], data['vocabModel']))
+	# 	vocabulary = joblib.load('%s/../../data/vocabulary/%s_tfidf.pkl' % (dir_path, data['vocabModel']))
+	# else:
+	# 	clf = joblib.load('%s/../../data/models/%s_%s.pkl' % (dir_path, data['classifier'], data['vocabModel']))
+	# 	vocabulary = joblib.load('%s/../../data/vocabulary/%s.pkl' % (dir_path, data['vocabModel']))
+
+	vect = TfidfVectorizer(min_df=min_df, stop_words="english", ngram_range=(1, 1)).fit(text_train)
+	X_train = vect.transform(text_train)
+
+	clf = LogisticRegression(solver='newton-cg', verbose=True)
+	clf.fit(X_train, y_train)
+
 	X = vect.transform(data['reviews'])
 	y = np.array(data['ratings'])
 
@@ -180,3 +196,58 @@ def classify_reviews():
 		'accuracy': accuracy,
 		'predicted_label': y_pred.tolist()
 	})
+
+
+@mod.route('/explain/prediction', methods=['POST'])
+def explain_review_prediction():
+	"""Explain a specific prediction using the eli5 library
+	"""
+	data = request.get_json(force=True)
+	test_size = 0.2
+	min_df = 5
+
+	reviews = load_files(dir_path + '/../../data/reviews/not_corrected')
+
+	text_train, text_test, y_train, y_test = train_test_split(reviews.data, reviews.target, test_size=test_size, random_state=0)
+
+	vect = TfidfVectorizer(min_df=min_df, stop_words='english', ngram_range=(1, 1)).fit(text_train)
+	X_train = vect.transform(text_train)
+
+	clf = LogisticRegression(solver='newton-cg', verbose=True)
+	clf.fit(X_train, y_train)
+
+	explanation = explain_prediction.explain_prediction_linear_classifier(clf, data['review'], vec=vect, target_names=reviews.target_names)
+	div = html.format_as_html(explanation, include_styles=False)
+	style = html.format_html_styles()
+
+	return jsonify({
+			'div': div,
+			'style': style
+		})
+
+
+@mod.route('/explain/weights', methods=['GET'])
+def explain_model_weights():
+	"""Explain the weights/parameters of a certain model
+	"""
+	test_size = 0.2
+	min_df = 5
+
+	reviews = load_files(dir_path + '/../../data/reviews/not_corrected')
+
+	text_train, text_test, y_train, y_test = train_test_split(reviews.data, reviews.target, test_size=test_size, random_state=0)
+
+	vect = TfidfVectorizer(min_df=min_df, stop_words='english', ngram_range=(1, 1)).fit(text_train)
+	X_train = vect.transform(text_train)
+
+	clf = LogisticRegression(solver='newton-cg', verbose=True)
+	clf.fit(X_train, y_train)
+
+	explanation = explain_weights.explain_linear_classifier_weights(clf, vec=vect, target_names=reviews.target_names)
+	div = html.format_as_html(explanation, include_styles=False)
+	style = html.format_html_styles()
+
+	return jsonify({
+			'div': div,
+			'style': style
+		})

@@ -31,8 +31,6 @@ def main(data_size, test_size=0.2, min_df=5, vocab_model='unigram', tf_idf=False
 	else:
 		reviews = load_files(dir_path + '/../data/reviews/not_corrected')
 
-	split = int(len(reviews.data) * (1 - test_size))
-
 	if data_size != -1:
 		text_train, text_test, y_train, y_test = train_test_split(reviews.data[:data_size], reviews.target[:data_size], test_size=test_size, random_state=0)
 	else:
