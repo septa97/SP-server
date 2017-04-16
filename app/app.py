@@ -25,12 +25,10 @@ def load_blueprints(app):
 	from .api.rethinkdb.routes import mod as rethinkdb_mod
 	from .api.classifier.routes import mod as classifier_mod
 	from .api.dimensionality_reduction.routes import mod as dimensionality_reduction_mod
-	from .api.features.routes import mod as features_mod
 	# from .api.scraper.routes import mod as scraper_mod
 
 	app.register_blueprint(coursera_mod, url_prefix='/api/v1/coursera')
 	app.register_blueprint(rethinkdb_mod, url_prefix='/api/v1/rethinkdb')
 	app.register_blueprint(classifier_mod, url_prefix='/api/v1/classifier')
 	app.register_blueprint(dimensionality_reduction_mod, url_prefix='/api/v1/dimensionality-reduction')
-	app.register_blueprint(features_mod, url_prefix='/api/v1/features')
 	# app.register_blueprint(scraper_mod, url_prefix='/api/v1/scraper')

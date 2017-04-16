@@ -73,6 +73,21 @@ def get_all_partners():
 	return jsonify(data)
 
 
+@mod.route('/features', methods=['GET'])
+def get_all_features():
+	"""
+	Retrieves all the vocabularies (unigram, bigram, and trigram).
+	"""
+	data = []
+
+	cursor = r.table('features').run(connection)
+
+	for document in cursor:
+		data.append(document)
+
+	return jsonify(data)
+
+
 @mod.route('/partners/location', methods=['GET'])
 def get_all_partners_location():
 	"""
