@@ -51,25 +51,34 @@ class CourseraScraper:
 		Start the scraping
 		"""
 		for slug in self.slugs['elements']:
-			if slug not in self.scraped['elements']:
-				self.scrape_reviews(slug)
-				self.scraped['elements'].append(slug)
+			# if slug not in self.scraped['elements']:
+			if (slug not in self.number_of_reviews) \
+				or (self.number_of_reviews[slug] != -1) \
+				or (self.number_of_reviews[slug]['expected'] != self.number_of_reviews[slug]['actual']):
+
+				result = self.scrape_reviews(slug)
+
+				if result == -1:
+					self.number_of_reviews[slug] = -1
+
+				if slug not in self.scraped['elements']:
+					self.scraped['elements'].append(slug)
 
 				# Write to file everytime a course is scraped
 				dir_path = os.path.dirname(os.path.realpath(__file__)) + '/../data'
 				os.makedirs(dir_path, exist_ok=True)
-				with open(dir_path + '/real_scraped.json', 'w') as fp:
+				with open(dir_path + '/scraped.json', 'w') as fp:
 					json.dump(self.scraped, fp, indent=2)
 
 				with open(dir_path + '/number_of_reviews.json', 'w') as fp:
 					json.dump(self.number_of_reviews, fp, indent=2)
 
-				print(slug, 'is written to real_scraped.json...')
+				print(slug, 'is written to scraped.json...')
 			else:
 				print(self.base_url + slug, 'is already scraped...')
 
 		print('Overall total number of reviews fetched:', str(self.overall_reviews))
-		driver.close()
+		self.driver.close()
 
 
 	def load_slugs_json(self, path):
@@ -127,7 +136,7 @@ class CourseraScraper:
 		except TimeoutException:
 			# Will return if there are no reviews in the course
 			print(slug, 'has no reviews.')
-			return
+			return -1
 
 		# Wait for 5 seconds before clicking the "See all reviews" button
 		time.sleep(5)
@@ -198,7 +207,7 @@ if __name__ == "__main__":
 
 	paths = {
 		'slugs': dir_path + '/../data/slugs.json',
-		'scraped': dir_path + '/../data/real_scraped.json',
+		'scraped': dir_path + '/../data/scraped.json',
 		'number_of_reviews': dir_path + '/../data/number_of_reviews.json'
 	}
 
