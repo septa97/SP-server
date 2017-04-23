@@ -1,15 +1,12 @@
 import rethinkdb as r
 
 from flask import Blueprint, jsonify
-from nltk.corpus import sentiwordnet as swn
 from pydash.collections import count_by
 from textblob import TextBlob
 
 from app.lib.rethinkdb_connect import connection
 from app.modules.features import FeaturePreprocessor
 from app.modules.preprocessor import preprocess, is_English
-from app.modules.vocabulary import create_vocabulary_list
-from app.modules.labeller import Labeller
 
 
 mod = Blueprint('rethinkdb', __name__)
@@ -375,5 +372,54 @@ def get_all_course_review_words_neutral(course_slug):
 		overall_words.extend(words)
 
 	data['word_mapping'] = count_by(overall_words)
+
+	return jsonify(data)
+
+
+@mod.route('/wordclouds', methods=['GET'])
+def get_wordcloud():
+	"""
+	Retrieves all the words and its corresponding occurences on the whole dataset (English words only)
+	"""
+	data = {}
+
+	cursor = r.table('combined_reviews_with_labels').limit(10000).run(connection)
+
+	reviews = []
+	for document in cursor:
+		reviews.append(document)
+
+	overall_words = []
+	very_positive_words = []
+	positive_words = []
+	neutral_words = []
+	negative_words = []
+	very_negative_words = []
+
+	for review in reviews:
+		tokens = preprocess(review['data'])
+
+		if tokens == -1:
+			continue
+
+		overall_words.extend(tokens)
+
+		if review['label'] == 5:
+			very_positive_words.extend(tokens)
+		elif review['label'] == 4:
+			positive_words.extend(tokens)
+		elif review['label'] == 3:
+			neutral_words.extend(tokens)
+		elif review['label'] == 2:
+			negative_words.extend(tokens)
+		elif review['label'] == 1:
+			very_negative_words.extend(tokens)
+
+	data['overall'] = count_by(overall_words)
+	data['very_positive'] = count_by(very_positive_words)
+	data['positive'] = count_by(positive_words)
+	data['neutral'] = count_by(neutral_words)
+	data['negative'] = count_by(negative_words)
+	data['very_negative'] = count_by(very_negative_words)
 
 	return jsonify(data)

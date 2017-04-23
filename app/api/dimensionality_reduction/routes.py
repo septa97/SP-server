@@ -10,7 +10,6 @@ from sklearn.decomposition import PCA, KernelPCA, SparsePCA
 from sklearn.datasets import load_files
 from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 from sklearn.manifold import TSNE
-from textblob import TextBlob
 
 from app.configuration.config import config
 from app.lib.rethinkdb_connect import connection
@@ -60,6 +59,7 @@ def principal_component_analysis(min_df, rows, n_components):
 		}
 	}
 
+	# The actual label will be used as class labels
 	reviews = load_files(dir_path + '/../../data/reviews/not_corrected')
 	text, y = reviews.data[:rows], reviews.target[:rows]
 	classes = {k: v for k, v in zip(np.unique(y), reviews.target_names)}
@@ -67,12 +67,10 @@ def principal_component_analysis(min_df, rows, n_components):
 	for i in range(0, len(text)):
 		data[classes[y[i]]]['reviews'].append(text[i].decode('utf-8'))
 
-	vect = CountVectorizer(min_df=min_df, stop_words="english").fit(text)
-	X = vect.transform(text)
+	X = CountVectorizer(min_df=min_df, stop_words="english").fit_transform(text)
 
 	# Principal Component Analysis
-	pca = PCA(n_components=n_components)
-	X_reduced = pca.fit_transform(X.toarray())
+	X_reduced = KernelPCA(n_components=n_components, kernel='rbf', fit_inverse_transform=False).fit_transform(X.toarray())
 
 	for i, c in zip(np.unique(y), reviews.target_names):
 		data[c]['X'] = X_reduced[y == i, 0].tolist()
@@ -122,6 +120,7 @@ def t_distributed_stochastic_neighbor_embedding(min_df, rows, n_components):
 		}
 	}
 
+	# The actual label will be used as class labels
 	reviews = load_files(dir_path + '/../../data/reviews/not_corrected')
 	text, y = reviews.data[:rows], reviews.target[:rows]
 	classes = {k: v for k, v in zip(np.unique(y), reviews.target_names)}
@@ -129,12 +128,10 @@ def t_distributed_stochastic_neighbor_embedding(min_df, rows, n_components):
 	for i in range(0, len(text)):
 		data[classes[y[i]]]['reviews'].append(text[i].decode('utf-8'))
 
-	vect = CountVectorizer(min_df=min_df, stop_words="english").fit(text)
-	X = vect.transform(text)
+	X = CountVectorizer(min_df=min_df, stop_words="english").fit_transform(text)
 
 	# Principal Component Analysis
-	tsne = TSNE(n_components=n_components, init='pca', random_state=0)
-	X_reduced = tsne.fit_transform(X.toarray())
+	X_reduced = TSNE(n_components=n_components, init='pca', random_state=0).fit_transform(X.toarray())
 
 	for i, c in zip(np.unique(y), reviews.target_names):
 		data[c]['X'] = X_reduced[y == i, 0].tolist()
@@ -149,7 +146,7 @@ def t_distributed_stochastic_neighbor_embedding(min_df, rows, n_components):
 @mod.route('/word2vec/<int:min_count>/<int:rows>/<int:n_components>', methods=['GET'])
 def word2vec_word_embedding(min_count, rows, n_components):
 	"""
-	Returns the tSNE dimension-reduced data of word embeddings with n_components
+	Returns the t-SNE dimension-reduced data of word embeddings with n_components
 	as the new number of dimensions
 	"""
 	data = {
@@ -159,7 +156,8 @@ def word2vec_word_embedding(min_count, rows, n_components):
 		'words': []
 	}
 
-	reviews = load_files(dir_path + '/../../data/reviews/not_corrected').data[:rows]
+	# The actual label will be used as class labels
+	reviews = load_files(dir_path + '/../../data/reviews/not_corrected').data
 
 	preprocessed_reviews = [preprocess(review.decode('utf-8')) for review in reviews]
 	model = gensim.models.Word2Vec(preprocessed_reviews, min_count=min_count, size=400)
@@ -171,14 +169,13 @@ def word2vec_word_embedding(min_count, rows, n_components):
 
 	X = np.array(X)
 
-	tsne = TSNE(n_components=n_components, init='pca', random_state=0)
-	X_reduced = tsne.fit_transform(X)
+	X_reduced = TSNE(n_components=n_components, init='pca', random_state=0).fit_transform(X)
 
-	data['X'] = X_reduced[:, 0].tolist()
-	data['y'] = X_reduced[:, 1].tolist()
+	data['X'] = X_reduced[:rows, 0].tolist()
+	data['y'] = X_reduced[:rows, 1].tolist()
 	data['words'] = model.wv.index2word
 
 	if n_components == 3:
-		data['z'] = X_reduced[:, 2].tolist()
+		data['z'] = X_reduced[:rows, 2].tolist()
 
 	return jsonify(data)

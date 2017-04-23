@@ -3,16 +3,18 @@ import requests
 
 def main():
 	min_df = 5
-	classifiers = ['LR', 'SVM', 'MLP']
-	data_sizes = [1000, 2000, 5000, 10000, 15000, 20000, -1]
+	# data_sizes = [-1, 1000, 5000, 10000, 20000, 30000, 40000]
+	data_sizes = [-1]
+	# classifiers = ['LR', 'SVM', 'MLP']
+	classifiers = ['SVM', 'MLP']
 	vocab_models = ['unigram', 'bigram', 'trigram']
 	tf_idfs = [True, False]
 	corrected = [True, False]
 
-	res = []
+	res_count = 0
 
-	for clf in classifiers:
-		for d in data_sizes:
+	for d in data_sizes:
+		for clf in classifiers:
 			for v in vocab_models:
 				for t in tf_idfs:
 					for c in corrected:
@@ -29,12 +31,11 @@ def main():
             				'Content-Type': 'application/x-www-form-urlencoded'
 						}
 
-						curr_res = requests.post('http://localhost:5000/api/v1/classifier/train', json=payload, headers=headers)
-						print(curr_res.text)
-						res.append(curr_res)
+						requests.post('http://localhost:5000/api/v1/classifier/train', json=payload, headers=headers)
+						res_count += 1
 
 
-	print('Total number of requests:', len(res))
+	print('Total number of requests:', res_count)
 
 
 if __name__ == "__main__":

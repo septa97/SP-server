@@ -53,8 +53,8 @@ class CourseraScraper:
 		for slug in self.slugs['elements']:
 			# if slug not in self.scraped['elements']:
 			if (slug not in self.number_of_reviews) \
-				or (self.number_of_reviews[slug] != -1) \
-				or (self.number_of_reviews[slug]['expected'] != self.number_of_reviews[slug]['actual']):
+				or (self.number_of_reviews[slug] != -1 and
+				self.number_of_reviews[slug]['expected'] != self.number_of_reviews[slug]['actual']):
 
 				result = self.scrape_reviews(slug)
 

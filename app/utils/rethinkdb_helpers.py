@@ -19,3 +19,11 @@ def create_or_delete_table(table, delete=False):
 			print('Table <%s> already exists. Deleted all existing documents instead.' % table)
 		else:
 			print('Table <%s> already exists.' % table)
+
+
+def insert_features(vocab_model, tf_idf, data):
+	r.table('features').insert({
+			'id': vocab_model,
+			'tf_idf': tf_idf,
+			'data': data
+		}).run(connection)
