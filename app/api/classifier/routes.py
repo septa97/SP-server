@@ -5,7 +5,7 @@ import numpy as np
 import rethinkdb as r
 
 from eli5.formatters import html, text, as_dict
-from eli5.lime import TextExplainer
+from eli5.lime.lime import TextExplainer
 from eli5.sklearn import explain_prediction, explain_weights, unhashing
 from flask import Blueprint, jsonify, request
 from sklearn.datasets import load_files
@@ -25,6 +25,7 @@ from app.lib.rethinkdb_connect import connection
 from app.utils.db_manipulation import save_to_performance
 from app.utils.model_pickler import load_clf_and_vocabulary
 
+stopwords = nltk.corpus.stopwords.words('english')
 dir_path = os.path.dirname(os.path.realpath(__file__))
 
 
@@ -172,10 +173,14 @@ def classify_reviews():
 	vect = CountVectorizer(vocabulary=vocabulary)
 	vect._validate_vocabulary()
 
-	X = vect.transform(data['reviews'])
 	y = np.array(data['ratings'])
 
-	y_pred = clf.predict(X)
+	if data['classifier'] == 'LR':
+		X = vect.transform(data['reviews'])
+		y_pred = clf.predict(X)
+	elif data['classifier'] == 'SVM' or data['classifier'] == 'MLP':
+		y_pred = clf.predict(data['reviews'])
+
 	accuracy = accuracy_score(y, y_pred)
 
 	print('Accuracy:', accuracy * 100)
@@ -194,29 +199,76 @@ def explain_review_prediction():
 	data = request.get_json(force=True)
 
 	# Use the original documents, not the corrected ones
-	reviews = load_files(dir_path + '/../../data/reviews/not_corrected')
+	target_names = ['negative', 'neutral', 'positive', 'very_negative', 'very_positive']
 	clf, vocabulary = load_clf_and_vocabulary(data['classifier'], data['vocabModel'], data['tfIdf'], False)
-	print(vocabulary)
 	vect = CountVectorizer(vocabulary=vocabulary)
 	vect._validate_vocabulary()
 
 	if data['classifier'] == 'LR':
-		explanation = explain_prediction.explain_prediction_linear_classifier(clf, data['review'], vec=vect, top=10, target_names=reviews.target_names)
-		div = html.format_as_html(explanation, include_styles=False)
-		style = html.format_html_styles()
-	elif data['classifier'] == 'SVM' or data['classifier'] == 'MLP':
-		te = TextExplainer(random_state=0)
-		te.fit(data['review'], clf.predict_proba)
-		explanation = te.explain_prediction(te.clf_, data['review'], vec=te.vec_, top=10, target_names=reviews.target_names)
+		explanation = explain_prediction.explain_prediction_linear_classifier(clf, data['review'], vec=vect, top=10, target_names=target_names)
 		div = html.format_as_html(explanation, include_styles=False)
 		style = html.format_html_styles()
 
-	print(reviews.target_names)
-
-	return jsonify({
+		return jsonify({
 			'div': div,
 			'style': style
 		})
+
+	elif data['classifier'] == 'SVM' or data['classifier'] == 'MLP':
+		te = TextExplainer(n_samples=100, vec=vect, random_state=0)
+		te.fit(data['review'], clf.predict_proba)
+		explanation = te.explain_prediction(top=10, target_names=target_names)
+		div = html.format_as_html(explanation, include_styles=False)
+		style = html.format_html_styles()
+
+		distorted_texts = []
+
+		for sample in te.samples_:
+			sample_explanation = explain_prediction.explain_prediction_linear_classifier(te.clf_, sample, vec=te.vec_, top=10, target_names=target_names)
+			dict_explanation = as_dict.format_as_dict(sample_explanation)
+
+			curr = {
+				'text': sample
+			}
+
+			for c in dict_explanation['targets']:
+				if c['target'] == 'negative':
+					curr['negative'] = c['proba']
+				elif c['target'] == 'neutral':
+					curr['neutral'] = c['proba']
+				elif c['target'] == 'positive':
+					curr['positive'] = c['proba']
+				elif c['target'] == 'very_negative':
+					curr['very_negative'] = c['proba']
+				elif c['target'] == 'very_positive':
+					curr['very_positive'] = c['proba']
+
+			distorted_texts.append(curr)
+
+		review_explanation = as_dict.format_as_dict(explanation)
+		probabilities = {}
+
+		for c in review_explanation['targets']:
+			if c['target'] == 'negative':
+				probabilities['negative'] = c['proba']
+			elif c['target'] == 'neutral':
+				probabilities['neutral'] = c['proba']
+			elif c['target'] == 'positive':
+				probabilities['positive'] = c['proba']
+			elif c['target'] == 'very_negative':
+				probabilities['very_negative'] = c['proba']
+			elif c['target'] == 'very_positive':
+				probabilities['very_positive'] = c['proba']
+
+		return jsonify({
+			'div': div,
+			'style': style,
+			'original_text': data['review'],
+			'probabilities': probabilities,
+			'distorted_texts': distorted_texts,
+			'metrics': te.metrics_
+		})
+
 
 
 @mod.route('/explain/weights', methods=['POST'])
@@ -227,23 +279,21 @@ def explain_model_weights():
 	data = request.get_json(force=True)
 
 	# Use the original documents, not the corrected ones
-	reviews = load_files('%s/../../data/reviews/%s' % (dir_path, 'corrected' if data['corrected'] else 'not_corrected'))
+	target_names = ['negative', 'neutral', 'positive', 'very_negative', 'very_positive']
 	clf, vocabulary = load_clf_and_vocabulary(data['classifier'], data['vocabModel'], data['tfIdf'], data['corrected'])
 	vect = CountVectorizer(vocabulary=vocabulary)
 	vect._validate_vocabulary()
 
 	if data['classifier'] == 'LR':
-		explanation = explain_weights.explain_linear_classifier_weights(clf, vec=vect, target_names=reviews.target_names)
+		explanation = explain_weights.explain_linear_classifier_weights(clf, vec=vect, target_names=target_names)
 		div = html.format_as_html(explanation, include_styles=False)
 		style = html.format_html_styles()
-	# elif data['classifier'] == 'SVM' or data['classifier'] == 'MLP':
-	# 	te = TextExplainer(random_state=0)
-	# 	te.fit(, clf.predict_proba)
-	# 	explanation = te.explain_weights(te.clf_, , vec=te.vec_, top=10, target_names=reviews.target_names)
-	# 	div = html.format_as_html(explanation, include_styles=False)
-	# 	style = html.format_html_styles()
-
-	print(reviews.target_names)
+	elif data['classifier'] == 'SVM' or data['classifier'] == 'MLP':
+		te = TextExplainer(n_samples=100, vec=vect, random_state=0)
+		te.fit(data['review'], clf.predict_proba)
+		explanation = te.explain_weights(top=10, target_names=target_names)
+		div = html.format_as_html(explanation, include_styles=False)
+		style = html.format_html_styles()
 
 	return jsonify({
 			'div': div,

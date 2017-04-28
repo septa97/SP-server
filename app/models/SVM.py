@@ -8,7 +8,7 @@ from sklearn.datasets import load_files
 from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer
 from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.metrics import confusion_matrix, f1_score, precision_score, recall_score, accuracy_score
-from sklearn.pipeline import Pipeline
+from sklearn.pipeline import Pipeline, make_pipeline
 from sklearn.svm import SVC
 
 from app.lib.rethinkdb_connect import connection
@@ -55,24 +55,35 @@ def main(data_size, test_size=0.2, min_df=5, vocab_model='unigram', tf_idf=False
 			vect = CountVectorizer(min_df=min_df, stop_words=stopwords, ngram_range=(3, 3))
 			transformer = TfidfTransformer(use_idf=False)
 
+	# PIPELINED WITH K-FOLD CROSS VALIDATION
 	# Support Vector Classifier (one vs rest strategy, RBF/Gaussian kernel)
-	clf = SVC(decision_function_shape='ovr', kernel='rbf', verbose=True)
+	# clf = SVC(decision_function_shape='ovr', kernel='rbf', verbose=False)
 
-	parameters = {
-		'clf__C': np.logspace(-4, 4, 10).tolist()
-	}
+	# parameters = {
+	# 	'clf__C': np.logspace(-4, 4, 10).tolist()
+	# }
 
-	pipe = Pipeline([
-			('vect', vect),
-			('transformer', transformer),
-			('clf', clf)
-		])
+	# pipe = Pipeline([
+	# 		('vect', vect),
+	# 		('transformer', transformer),
+	# 		('clf', clf)
+	# 	])
 
-	grid_search = GridSearchCV(pipe, parameters, cv=10, n_jobs=-1, verbose=False)
-	grid_search.fit(text_train, y_train)
+	# grid_search = GridSearchCV(pipe, parameters, cv=10, n_jobs=-1, verbose=False)
+	# grid_search.fit(text_train, y_train)
 
-	y_train_pred = grid_search.predict(text_train)
-	y_test_pred = grid_search.predict(text_test)
+	# y_train_pred = grid_search.predict(text_train)
+	# y_test_pred = grid_search.predict(text_test)
+
+	# TRAIN-TEST SPLIT (80-20)
+	clf = SVC(C=1000, decision_function_shape='ovr', kernel='rbf', probability=True, verbose=False)
+
+	pipe = make_pipeline(vect, clf)
+	pipe.fit(text_train, y_train)
+
+	y_train_pred = pipe.predict(text_train)
+	y_test_pred = pipe.predict(text_test)
+	###################################################
 	train_score = accuracy_score(y_train, y_train_pred)
 	test_score = accuracy_score(y_test, y_test_pred)
 	score_f1 = f1_score(y_train, y_train_pred, average='weighted')
@@ -90,7 +101,7 @@ def main(data_size, test_size=0.2, min_df=5, vocab_model='unigram', tf_idf=False
 	insert_features(vocab_model, tf_idf, vect.vocabulary_.keys())
 
 	if data_size == -1:
-		persist_to_disk('SVM', vocab_model, tf_idf, corrected, grid_search.best_estimator_, vect.vocabulary_)
+		persist_to_disk('SVM', vocab_model, tf_idf, corrected, pipe, vect.vocabulary_)
 		data_size = len(reviews.data)
 
 	return train_score, test_score, len(text_train), len(text_test), cm_train, cm_test, score_f1, score_precision, score_recall, vect.vocabulary_, data_size
