@@ -6,7 +6,7 @@ from rethinkdb.errors import RqlRuntimeError
 
 # from app.lib.rethinkdb_connect import connection
 
-connection = r.connect('localhost', 28015, db='mooc')
+connection = r.connect('localhost', 28015, db='backup')
 
 
 def create_or_delete_table(table, delete=False):
@@ -22,8 +22,18 @@ def create_or_delete_table(table, delete=False):
 
 
 def insert_features(vocab_model, tf_idf, data):
-	r.table('features').insert({
-			'id': vocab_model,
-			'tf_idf': tf_idf,
-			'data': data
+	cursor = r.table('features').filter({
+			'vocab_model': vocab_model,
+			'tf_idf': tf_idf
 		}).run(connection)
+
+	i = 0
+	for document in cursor:
+		i += 1
+
+	if i == 0:
+		r.table('features').insert({
+				'vocab_model': vocab_model,
+				'tf_idf': tf_idf,
+				'data': data
+			}).run(connection)
