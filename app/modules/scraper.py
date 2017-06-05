@@ -147,18 +147,30 @@ class CourseraScraper:
 		# Set the focus to the modal
 		self.actions.move_to_element(elem)
 
-
 		# Wait for 5 seconds before triggering the infinite scrolling
 		time.sleep(5)
-		while True:
-			elem.send_keys(Keys.END)
-			try:
-				self.wait.until(EC.visibility_of_element_located((By.CLASS_NAME, 'spinner')))
-			except TimeoutException:
-				# If waiting exceeds the timeout, it means that all reviews are now in the modal
-				break
+		elem.send_keys(Keys.END)
+		curr = len(self.driver.find_elements_by_class_name('rc-CourseReview'))
+		time.sleep(5)
 
-			self.wait.until(EC.invisibility_of_element_located((By.CLASS_NAME, 'spinner')))
+		# Expected number of reviews in the course (if there is)
+		expected_reviews = self.driver.find_element_by_class_name('rc-CountHeader') \
+							.find_element_by_class_name('c-value') \
+							.find_element_by_tag_name('span').text
+
+		expected_reviews = int(expected_reviews.replace(',', ''))
+
+		while curr < expected_reviews:
+			elem.send_keys(Keys.END)
+			curr = len(self.driver.find_elements_by_class_name('rc-CourseReview'))
+			print('Expected: %s, Current: %s' % (expected_reviews, curr), end='\r')
+			# try:
+			# 	self.wait.until(EC.visibility_of_element_located((By.CLASS_NAME, 'spinner')))
+			# except TimeoutException:
+			# 	# If waiting exceeds the timeout, it means that all reviews are now in the modal
+			# 	break
+
+			# self.wait.until(EC.invisibility_of_element_located((By.CLASS_NAME, 'spinner')))
 
 
 		total_reviews = 0
@@ -187,17 +199,27 @@ class CourseraScraper:
 
 			reviews['ratings'].append(len(stars))
 
-		expected_reviews = self.driver.find_element_by_class_name('rc-CountHeader') \
-							.find_element_by_class_name('c-value') \
-							.find_element_by_tag_name('span').text
+		# Insert/Update to the table 'reviews' of the database 'mooc'
+		cursor = r.table('reviews').filter({
+				'id': slug
+			}).run(connection)
 
-		# Insert to the table 'reviews' of the database 'mooc'
-		r.table('reviews').insert(reviews).run(connection)
+		i = 0
+		for document in cursor:
+			i += 1
+
+		if i == 0:
+			r.table('reviews').insert(reviews).run(connection)
+		else:
+			r.table('reviews').filter({
+					'id': slug
+				}).update(reviews).run(connection)
+
 		print('Reviews for', slug, 'was added to database:', config['DB_NAME'] + ', table: reviews')
 		print('Expected number of reviews: %s. Total number of reviews scraped: %s' % (expected_reviews, total_reviews))
 
 		self.number_of_reviews[slug] = {
-			'expected': int(expected_reviews.replace(',', '')),
+			'expected': expected_reviews,
 			'actual': total_reviews
 		}
 
