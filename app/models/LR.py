@@ -6,10 +6,10 @@ import rethinkdb as r
 
 from sklearn.datasets import load_files
 from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer
-from sklearn.linear_model import LogisticRegressionCV
+from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import confusion_matrix, f1_score, precision_score, recall_score, accuracy_score
 from sklearn.model_selection import train_test_split
-from sklearn.pipeline import Pipeline
+from sklearn.pipeline import Pipeline, make_pipeline
 
 from app.lib.rethinkdb_connect import connection
 from app.utils.rethinkdb_helpers import create_or_delete_table, insert_features
@@ -25,7 +25,6 @@ def main(data_size, test_size=0.2, min_df=5, vocab_model='unigram', tf_idf=False
 	"""
 	Perform Logistic Regression on the current data
 	"""
-
 	if corrected:
 		reviews = load_files(dir_path + '/../data/reviews/corrected')
 	else:
@@ -58,22 +57,32 @@ def main(data_size, test_size=0.2, min_df=5, vocab_model='unigram', tf_idf=False
 			transformer = TfidfTransformer(use_idf=False)
 
 	# Logistic Regression with Stratified K-Fold. Uses all the CPU cores
-	clf = LogisticRegressionCV(solver='newton-cg', n_jobs=-1, cv=10, verbose=False)
+	# clf = LogisticRegressionCV(solver='newton-cg', n_jobs=-1, cv=10, verbose=False)
 
-	pipe = Pipeline([
-			('vect', vect),
-			('transformer', transformer),
-			('clf', clf)
-		])
+	# pipe = Pipeline([
+	# 		('vect', vect),
+	# 		('transformer', transformer),
+	# 		('clf', clf)
+	# 	])
+	# pipe.fit(text_train, y_train)
+
+	# y_train_pred = pipe.predict(text_train)
+	# y_test_pred = pipe.predict(text_test)
+
+	# TRAIN-TEST SPLIT (80-20)
+	clf = LogisticRegression(solver='newton-cg', verbose=False)
+
+	pipe = make_pipeline(vect, clf)
 	pipe.fit(text_train, y_train)
 
 	y_train_pred = pipe.predict(text_train)
 	y_test_pred = pipe.predict(text_test)
+	###################################################
 	train_score = accuracy_score(y_train, y_train_pred)
 	test_score = accuracy_score(y_test, y_test_pred)
-	score_f1 = f1_score(y_train, y_train_pred, average='weighted')
-	score_precision = precision_score(y_train, y_train_pred, average='weighted')
-	score_recall = recall_score(y_train, y_train_pred, average='weighted')
+	score_f1 = f1_score(y_test, y_test_pred, average='weighted')
+	score_precision = precision_score(y_test, y_test_pred, average='weighted')
+	score_recall = recall_score(y_test, y_test_pred, average='weighted')
 
 	print('(sklearn) Train data accuracy:', train_score)
 	print('(sklearn) Test data accuracy:', test_score)

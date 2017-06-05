@@ -23,7 +23,6 @@ def main(data_size, test_size=0.2, min_df=5, vocab_model='unigram', tf_idf=False
 	"""
 	Perform Support Vector Classifier on the current data
 	"""
-
 	if corrected:
 		reviews = load_files(dir_path + '/../data/reviews/corrected')
 	else:
@@ -76,7 +75,12 @@ def main(data_size, test_size=0.2, min_df=5, vocab_model='unigram', tf_idf=False
 	# y_test_pred = grid_search.predict(text_test)
 
 	# TRAIN-TEST SPLIT (80-20)
-	clf = SVC(C=1000, decision_function_shape='ovr', kernel='rbf', probability=True, verbose=False)
+	if data_size == -1:
+		probability = True
+	else:
+		probability = False
+
+	clf = SVC(C=1000, decision_function_shape='ovr', kernel='rbf', probability=probability, verbose=True)
 
 	pipe = make_pipeline(vect, clf)
 	pipe.fit(text_train, y_train)
@@ -86,9 +90,9 @@ def main(data_size, test_size=0.2, min_df=5, vocab_model='unigram', tf_idf=False
 	###################################################
 	train_score = accuracy_score(y_train, y_train_pred)
 	test_score = accuracy_score(y_test, y_test_pred)
-	score_f1 = f1_score(y_train, y_train_pred, average='weighted')
-	score_precision = precision_score(y_train, y_train_pred, average='weighted')
-	score_recall = recall_score(y_train, y_train_pred, average='weighted')
+	score_f1 = f1_score(y_test, y_test_pred, average='weighted')
+	score_precision = precision_score(y_test, y_test_pred, average='weighted')
+	score_recall = recall_score(y_test, y_test_pred, average='weighted')
 
 	print('(sklearn) Train data accuracy:', train_score)
 	print('(sklearn) Test data accuracy:', test_score)

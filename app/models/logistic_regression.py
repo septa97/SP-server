@@ -1,18 +1,28 @@
 import sys
 import os
+import nltk
 import numpy as np
-from scipy.optimize import minimize
 
-# Import helper functions
+from scipy.optimize import minimize
+from sklearn.datasets import load_files
+from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.metrics import accuracy_score
+from sklearn.model_selection import train_test_split
+
+stopwords = nltk.corpus.stopwords.words('english')
 dir_path = os.path.dirname(os.path.realpath(__file__))
-sys.path.insert(0, dir_path + "/../utils")
-from data_manipulation import feature_scale, train_test_split, add_bias_weights
-from data_operation import accuracy_score
+sys.path.insert(0, dir_path + '/../utils')
+
+from data_manipulation import add_bias_weights
 
 
 # The sigmoid function
 def sigmoid(x):
 	return 1 / (1 + np.exp(-x))
+
+# Safe ln
+def safe_ln(x, minval=0.0000000001):
+	return np.log(x.clip(min=minval))
 
 class LogisticRegression:
 	def __init__(self, l=1, threshold=0.5):
@@ -40,18 +50,8 @@ class LogisticRegression:
 		# Predicted values using the current theta
 		h = sigmoid(X.dot(theta))
 
-		# total = 0
-		# for i in range(0, self.m):
-		# 	if (y[i] == 1):
-		# 		total = total + np.log(h[i])
-		# 	else:
-		# 		total = total + np.log(1 - h[i])
-
-		# # Regularized cost function
-		# J = -1/self.m * total + (self.l/(2*self.m) * theta[1:].dot(theta[1:]))
-
 		# Vectorized implementation
-		J = -1/self.m * (y.dot(np.log(h)) + (1-y).dot(np.log(1-h))) + (self.l/(2*self.m) * theta[1:].dot(theta[1:]))
+		J = -1/self.m * (y.dot(safe_ln(h)) + (1-y).dot(safe_ln(1-h))) + (self.l/(2*self.m) * theta[1:].dot(theta[1:]))
 
 		# Regularized gradient computation
 		grad[0] = 1/self.m * X[:, 0].T.dot(h - y)
@@ -77,30 +77,25 @@ class LogisticRegression:
 		h = sigmoid(X.dot(self.theta))
 
 		for i in range(0, m):
-			if (h[i] >= self.threshold):
+			if h[i] >= self.threshold:
 				p[i] = 1
 
 		return p
 
 
 def main():
-	X = np.loadtxt('X_temp.txt', delimiter=',')
-	y = np.loadtxt('y_temp.txt', delimiter=',')
+	reviews = load_files(dir_path + '/../data/reviews/not_corrected')
+	text_train, text_test, y_train, y_test = train_test_split(reviews.data, reviews.target, test_size=0.2, random_state=0)
 
-	X_train, X_test, y_train, y_test = train_test_split(X, y)
+	vect = CountVectorizer(min_df=5, stop_words=stopwords, ngram_range=(1, 1))
+	X_train = vect.fit_transform(text_train)
+	X_test = vect.transform(text_test)
 
-	clf = LogisticRegression()
-	clf.fit(X_train, y_train, maxiter=400)
+	# clf = LogisticRegression()
+	# clf.fit(X_train, y_train)
+	# y_test_pred = clf.predict(X_test)
 
-	train_predicted = clf.predict(X_train)
-	test_predicted = clf.predict(X_test)
-
-	train_accuracy = accuracy_score(y_train, train_predicted)
-	test_accuracy = accuracy_score(y_test, test_predicted)
-
-	print('Train Accuracy:', train_accuracy)
-	print('Test Accuracy:', test_accuracy)
-
+	# print(accuracy_score(y_test, y_test_pred))
 
 if __name__ == "__main__":
 	main()
