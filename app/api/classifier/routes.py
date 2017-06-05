@@ -3,6 +3,7 @@ import os
 import nltk
 import numpy as np
 import rethinkdb as r
+import eli5
 
 from eli5.formatters import html, text, as_dict
 from eli5.lime.lime import TextExplainer
@@ -204,10 +205,31 @@ def explain_review_prediction():
 	vect = CountVectorizer(vocabulary=vocabulary)
 	vect._validate_vocabulary()
 
+	# reviews = load_files(dir_path + '/../../data/reviews/not_corrected')
+	# text_train, text_test, y_train, y_test = train_test_split(reviews.data, reviews.target, test_size=0.2, random_state=0)
+
+	# if data['tfIdf']:
+	# 	if data['vocabModel'] == 'unigram':
+	# 		vect = CountVectorizer(min_df=5, stop_words=stopwords, ngram_range=(1, 1)).fit(text_train)
+	# 	elif data['vocabModel'] == 'bigram':
+	# 		vect = CountVectorizer(min_df=5, stop_words=stopwords, ngram_range=(2, 2)).fit(text_train)
+	# 	elif data['vocabModel'] == 'trigram':
+	# 		vect = CountVectorizer(min_df=5, stop_words=stopwords, ngram_range=(3, 3)).fit(text_train)
+	# else:
+	# 	if data['vocabModel'] == 'unigram':
+	# 		vect = CountVectorizer(min_df=5, stop_words=stopwords, ngram_range=(1, 1)).fit(text_train)
+	# 	elif data['vocabModel'] == 'bigram':
+	# 		vect = CountVectorizer(min_df=5, stop_words=stopwords, ngram_range=(2, 2)).fit(text_train)
+	# 	elif data['vocabModel'] == 'trigram':
+	# 		vect = CountVectorizer(min_df=5, stop_words=stopwords, ngram_range=(3, 3)).fit(text_train)
+
 	if data['classifier'] == 'LR':
 		explanation = explain_prediction.explain_prediction_linear_classifier(clf, data['review'], vec=vect, top=10, target_names=target_names)
 		div = html.format_as_html(explanation, include_styles=False)
 		style = html.format_html_styles()
+
+		txt = text.format_as_text(explanation, show=eli5.formatters.fields.ALL, highlight_spaces=True, show_feature_values=True)
+		print(txt)
 
 		return jsonify({
 			'div': div,
@@ -215,7 +237,7 @@ def explain_review_prediction():
 		})
 
 	elif data['classifier'] == 'SVM' or data['classifier'] == 'MLP':
-		te = TextExplainer(n_samples=100, vec=vect, random_state=0)
+		te = TextExplainer(n_samples=100, clf=LogisticRegression(solver='newton-cg'), vec=vect, random_state=0)
 		te.fit(data['review'], clf.predict_proba)
 		explanation = te.explain_prediction(top=10, target_names=target_names)
 		div = html.format_as_html(explanation, include_styles=False)
@@ -286,12 +308,6 @@ def explain_model_weights():
 
 	if data['classifier'] == 'LR':
 		explanation = explain_weights.explain_linear_classifier_weights(clf, vec=vect, target_names=target_names)
-		div = html.format_as_html(explanation, include_styles=False)
-		style = html.format_html_styles()
-	elif data['classifier'] == 'SVM' or data['classifier'] == 'MLP':
-		te = TextExplainer(n_samples=100, vec=vect, random_state=0)
-		te.fit(data['review'], clf.predict_proba)
-		explanation = te.explain_weights(top=10, target_names=target_names)
 		div = html.format_as_html(explanation, include_styles=False)
 		style = html.format_html_styles()
 

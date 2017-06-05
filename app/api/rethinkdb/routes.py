@@ -423,3 +423,28 @@ def get_wordcloud():
 	data['very_negative'] = count_by(very_negative_words)
 
 	return jsonify(data)
+
+
+@mod.route('/class-distribution', methods=['GET'])
+def get_class_distribution():
+	"""
+	Retrieves the number of data per class
+	"""
+	data = {}
+
+	cursor = r.table('combined_reviews_with_labels').run(connection)
+
+	data['very_positive'] = data['positive'] = data['neutral'] = data['negative'] = data['very_negative'] = 0
+	for document in cursor:
+		if document['label'] == 5:
+			data['very_positive'] += 1
+		elif document['label'] == 4:
+			data['positive'] += 1
+		elif document['label'] == 3:
+			data['neutral'] += 1
+		elif document['label'] == 2:
+			data['negative'] += 1
+		elif document['label'] == 1:
+			data['very_negative'] += 1
+
+	return jsonify(data)
