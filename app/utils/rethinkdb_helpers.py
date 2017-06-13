@@ -4,9 +4,9 @@ import rethinkdb as r
 
 from rethinkdb.errors import RqlRuntimeError
 
-# from app.lib.rethinkdb_connect import connection
+from app.lib.rethinkdb_connect import connection
 
-connection = r.connect('localhost', 28015, db='backup')
+# connection = r.connect('localhost', 28015, db='backup')
 
 
 def create_or_delete_table(table, delete=False):
