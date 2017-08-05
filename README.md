@@ -40,6 +40,9 @@ pip install --editable .
 pip install -r requirements.txt
 ```
 
+## Download data.zip from this link and extract inside the app folder
+https://goo.gl/ZKXxkK
+
 ## Running the application
 ``` bash
 ./run.sh
