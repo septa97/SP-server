@@ -41,7 +41,10 @@ pip install -r requirements.txt
 ```
 
 ## Download data.zip from this link and extract inside the app folder
-https://goo.gl/ZKXxkK
+[https://goo.gl/ZKXxkK](https://goo.gl/ZKXxkK)
+The data on the link above also has the trained models.
+
+You can view the raw data that was scraped from the Coursera website here: [https://www.kaggle.com/septa97/100k-courseras-course-reviews-dataset](https://www.kaggle.com/septa97/100k-courseras-course-reviews-dataset)
 
 ## Running the application
 ``` bash
